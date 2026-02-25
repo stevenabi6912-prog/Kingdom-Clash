@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Kingdom Clash</title>
   <style>
     :root{
@@ -16,70 +16,292 @@
       --danger:#ff5c5c;
       --good:#59ffa0;
     }
-    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);
-      height:100vh; display:grid; grid-template-rows:1fr auto; overflow:hidden; }
-    .stage{ position:relative; display:grid; place-items:center; padding:24px; }
-    .bg{ position:absolute; inset:0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)), url("castle.jpg");
-      background-size:cover; background-position:center; filter:saturate(1.05); transform:scale(1.02); }
-    .bg::after{ content:""; position:absolute; inset:0;
-      background:radial-gradient(circle at 50% 40%, transparent 0 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.7) 100%); }
-    .grid-wrap{ position:relative; width:min(92vw, 980px); aspect-ratio:4/3; display:grid; place-items:center; }
-    .grid{ width:100%; height:100%; display:grid; gap:10px; padding:10px; }
-    .tile{ border-radius:14px; background:var(--tile); border:2px dashed rgba(255,255,255,0.20);
-      display:grid; place-items:center; font-weight:900; font-size:clamp(18px, 2.2vw, 34px);
-      user-select:none; cursor:pointer; transition:transform 0.08s ease, background 0.15s ease;
-      text-shadow:0 2px 10px rgba(0,0,0,0.45); transform-style:preserve-3d; perspective:900px;
-      position:relative; overflow:hidden; }
+
+    *{ box-sizing:border-box; }
+
+    html, body{
+      height:100%;
+      overscroll-behavior:none;
+      -webkit-text-size-adjust:100%;
+    }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      height:100vh;
+      display:grid;
+      grid-template-rows:1fr auto;
+      overflow:hidden;
+    }
+
+    .stage{
+      position:relative;
+      display:grid;
+      place-items:center;
+      padding:24px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-left: max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+    }
+
+    .bg{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none; /* IMPORTANT for mobile taps */
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)),
+        url("castle.jpg");
+      background-size:cover;
+      background-position:center;
+      filter:saturate(1.05);
+      transform:scale(1.02);
+    }
+
+    .bg::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at 50% 40%, transparent 0 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.7) 100%);
+    }
+
+    .grid-wrap{
+      position:relative;
+      z-index:1; /* ensure above bg on all browsers */
+      width:min(92vw, 980px);
+      /* iOS Safari sometimes flubs aspect-ratio sizing; give a height fallback */
+      height:min(70vh, 720px);
+      aspect-ratio:4 / 3;
+      display:grid;
+      place-items:center;
+    }
+
+    .grid{
+      width:100%;
+      height:100%;
+      display:grid;
+      gap:10px;
+      padding:10px;
+    }
+
+    .tile{
+      border-radius:14px;
+      background:var(--tile);
+      border:2px dashed rgba(255,255,255,0.20);
+      display:grid;
+      place-items:center;
+      font-weight:900;
+      font-size:clamp(18px, 2.6vw, 36px);
+      user-select:none;
+      cursor:pointer;
+      transition:transform 0.08s ease, background 0.15s ease;
+      text-shadow:0 2px 10px rgba(0,0,0,0.45);
+      transform-style:preserve-3d;
+      perspective:900px;
+      position:relative;
+      overflow:hidden;
+
+      /* Mobile tap reliability */
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     .tile:hover{ background:var(--tile-hover); transform:translateY(-2px); }
-    .tile.revealed{ background:var(--tile-revealed); border-style:solid; cursor:default; transform:none; }
+    .tile:active{ transform:translateY(0px) scale(0.99); }
+    .tile.revealed{
+      background:var(--tile-revealed);
+      border-style:solid;
+      cursor:default;
+      transform:none;
+    }
+
     .tile.flipping{ animation:flip 420ms ease both; }
-    @keyframes flip{ 0%{transform:rotateY(0)} 45%{transform:rotateY(90deg)} 55%{transform:rotateY(90deg)} 100%{transform:rotateY(0)} }
-    .tileImg{ width:86%; height:86%; object-fit:contain; filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35)); }
+    @keyframes flip{
+      0%{ transform:rotateY(0deg); }
+      45%{ transform:rotateY(90deg); }
+      55%{ transform:rotateY(90deg); }
+      100%{ transform:rotateY(0deg); }
+    }
 
-    .panel{ background:var(--panel); padding:14px 16px; display:grid; grid-template-columns:1.4fr 1.4fr 1.2fr; gap:12px; align-items:center; }
-    .team{ display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px 12px; border-radius:14px;
-      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); }
-    .team h2{ margin:0; font-size:16px; opacity:0.9; font-weight:800; }
-    .score{ font-size:28px; font-weight:1000; color:var(--accent); }
-    .controls{ display:grid; gap:8px; justify-items:end; }
-    button{ border:none; border-radius:12px; padding:10px 12px; font-weight:900; cursor:pointer;
-      background:rgba(255,255,255,0.14); color:var(--text); border:1px solid rgba(255,255,255,0.22); }
+    .tileImg{
+      width:86%;
+      height:86%;
+      object-fit:contain;
+      filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35));
+    }
+
+    .panel{
+      background:var(--panel);
+      padding:14px 16px;
+      display:grid;
+      grid-template-columns:1.4fr 1.4fr 1.2fr;
+      gap:12px;
+      align-items:center;
+
+      padding-bottom: max(14px, env(safe-area-inset-bottom));
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+    }
+
+    .team{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+    }
+
+    .team h2{
+      margin:0;
+      font-size:16px;
+      opacity:0.9;
+      font-weight:800;
+    }
+
+    .score{
+      font-size:28px;
+      font-weight:1000;
+      color:var(--accent);
+    }
+
+    .controls{
+      display:grid;
+      gap:8px;
+      justify-items:end;
+    }
+
+    button{
+      border:none;
+      border-radius:12px;
+      padding:10px 12px;
+      font-weight:900;
+      cursor:pointer;
+      background:rgba(255,255,255,0.14);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.22);
+
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
     button:hover{ background:rgba(255,255,255,0.18); }
-    .activeBadge{ display:inline-block; padding:6px 10px; border-radius:999px; font-weight:900;
-      background:rgba(255,210,74,0.18); border:1px solid rgba(255,210,74,0.35); color:var(--accent); justify-self:end; }
-    .log{ font-size:13px; opacity:0.9; text-align:right; line-height:1.25; }
-    @media (max-width:800px){ .panel{grid-template-columns:1fr;} .controls{justify-items:stretch;} .log{text-align:left;} }
 
-    /* POPUP */
-    .overlay{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); z-index:9999; }
+    .activeBadge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      background:rgba(255,210,74,0.18);
+      border:1px solid rgba(255,210,74,0.35);
+      color:var(--accent);
+      justify-self:end;
+    }
+
+    .log{
+      font-size:13px;
+      opacity:0.9;
+      text-align:right;
+      line-height:1.25;
+    }
+
+    @media (max-width:800px){
+      .panel{ grid-template-columns:1fr; }
+      .controls{ justify-items:stretch; }
+      .log{ text-align:left; }
+      .grid-wrap{ height:min(62vh, 640px); }
+    }
+
+    /* POPUP / SETTINGS OVERLAYS */
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:grid;
+      place-items:center;
+      background:rgba(0,0,0,0.55);
+      backdrop-filter:blur(4px);
+      z-index:9999;
+      padding:16px;
+    }
     .hidden{ display:none; }
-    .popup{ width:min(88vw, 560px); border-radius:22px; background:rgba(15,18,32,0.92);
-      border:1px solid rgba(255,255,255,0.18); box-shadow:0 20px 70px rgba(0,0,0,0.55);
-      padding:18px 18px 14px; transform:scale(0.92); opacity:0; animation:popIn 220ms ease forwards; }
+
+    .popup{
+      width:min(88vw, 560px);
+      border-radius:22px;
+      background:rgba(15, 18, 32, 0.92);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 70px rgba(0,0,0,0.55);
+      padding:18px 18px 14px;
+      transform:scale(0.92);
+      opacity:0;
+      animation:popIn 220ms ease forwards;
+    }
     @keyframes popIn{ to{ transform:scale(1); opacity:1; } }
+
     .popupTop{ display:grid; gap:4px; justify-items:center; margin-bottom:10px; }
     .popupTitle{ font-weight:1000; font-size:clamp(30px, 4vw, 54px); letter-spacing:0.5px; text-align:center; }
     .popupSub{ opacity:0.9; font-weight:900; text-align:center; }
-    .popupAnim{ position:relative; height:260px; border-radius:18px; background:rgba(255,255,255,0.06);
-      border:1px solid rgba(255,255,255,0.10); overflow:hidden; display:grid; place-items:center; }
-    .popupImg{ width:min(82%, 340px); height:auto; object-fit:contain; filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
-      animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards; transform-origin:50% 65%; opacity:0; }
-    @keyframes imgPop{ 0%{transform:translateY(12px) scale(0.92); opacity:0;}
-      40%{opacity:1;} 60%{transform:translateY(-6px) scale(1.05);} 100%{transform:translateY(0) scale(1); opacity:1;} }
+
+    .popupAnim{
+      position:relative;
+      height:260px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+
+    .popupImg{
+      width:min(82%, 340px);
+      height:auto;
+      object-fit:contain;
+      filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
+      animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards;
+      transform-origin:50% 65%;
+      opacity:0;
+    }
+    @keyframes imgPop{
+      0%{ transform:translateY(12px) scale(0.92); opacity:0; }
+      40%{ opacity:1; }
+      60%{ transform:translateY(-6px) scale(1.05); }
+      100%{ transform:translateY(0px) scale(1); opacity:1; }
+    }
+
     .spark{ position:absolute; font-size:28px; animation:spark 750ms ease forwards; opacity:0; }
     @keyframes spark{
       0%{ transform:translate(var(--x), var(--y)) scale(0.7); opacity:0; }
       18%{ opacity:1; }
       100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
     }
-    .popupBtn{ width:100%; margin-top:12px; padding:12px 12px; border-radius:14px; font-weight:1000;
-      background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.22); }
 
-    /* SETTINGS */
-    .settingsCard{ width:min(92vw, 520px); border-radius:20px; background:rgba(15,18,32,0.92);
-      border:1px solid rgba(255,255,255,0.18); box-shadow:0 20px 70px rgba(0,0,0,0.55);
-      padding:16px 16px 14px; display:grid; gap:12px; transform:scale(0.95); opacity:0; animation:popIn 220ms ease forwards; }
+    .popupBtn{
+      width:100%;
+      margin-top:12px;
+      padding:12px 12px;
+      border-radius:14px;
+      font-weight:1000;
+      background:rgba(255,255,255,0.14);
+      border:1px solid rgba(255,255,255,0.22);
+    }
+
+    .settingsCard{
+      width:min(92vw, 520px);
+      border-radius:20px;
+      background:rgba(15,18,32,0.92);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 70px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      display:grid;
+      gap:12px;
+      transform:scale(0.95);
+      opacity:0;
+      animation:popIn 220ms ease forwards;
+    }
+
     .settingsHeader{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .settingsTitle{ font-weight:1000; font-size:18px; letter-spacing:0.2px; }
     .sliderRow{ display:grid; gap:6px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); }
@@ -89,7 +311,7 @@
     input[type="range"]{ width:100%; }
     .settingsBtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .settingsBtns3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
-    .miniNote{ opacity:0.8; font-size:12px; line-height:1.25; }
+    .miniNote{ opacity:0.85; font-size:12px; line-height:1.25; }
     .warn{ color:var(--accent); font-weight:900; }
   </style>
 </head>
@@ -106,7 +328,7 @@
     <div class="team">
       <div>
         <h2 contenteditable="true" id="teamAName">Team A</h2>
-        <div style="opacity:.8;font-size:12px;">(click name to edit)</div>
+        <div style="opacity:.8;font-size:12px;">(tap name to edit)</div>
       </div>
       <div class="score" id="teamAScore">0</div>
     </div>
@@ -114,7 +336,7 @@
     <div class="team">
       <div>
         <h2 contenteditable="true" id="teamBName">Team B</h2>
-        <div style="opacity:.8;font-size:12px;">(click name to edit)</div>
+        <div style="opacity:.8;font-size:12px;">(tap name to edit)</div>
       </div>
       <div class="score" id="teamBScore">0</div>
     </div>
@@ -123,7 +345,7 @@
       <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
       <button id="toggleTeamBtn">Toggle Active Team</button>
       <button id="settingsBtn">Settings</button>
-      <div class="log" id="log">Click a square to reveal.</div>
+      <div class="log" id="log">Tap a square to reveal.</div>
     </div>
   </div>
 
@@ -174,15 +396,14 @@
         <button id="defaultsBtn">Defaults</button>
       </div>
 
-      <div class="miniNote" id="safariNote">
-        This build uses the most reliable Safari path:
-        <b>AudioBuffers</b> for SFX (no glitchy media-element reuse) + WebAudio crossfade music (no ducking).
-        <span class="warn">If you open this as a local file (file://), Safari may block loading audio files.</span>
+      <div class="miniNote">
+        Mobile/iOS note: audio will not play until the first user gesture. This build unlocks audio on the first tap anywhere.
+        If you were opening via <span class="warn">file://</span>, use GitHub Pages (real https) for consistent mobile audio.
       </div>
     </div>
   </div>
 
-  <!-- MUSIC (media elements routed into WebAudio for crossfade) -->
+  <!-- MUSIC -->
   <audio id="musicBgEl" src="bg-music.mp3" preload="auto" loop playsinline></audio>
   <audio id="musicWinEl" src="winner-music.mp3" preload="auto" loop playsinline></audio>
 
@@ -206,7 +427,7 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
-  const LS_KEY = "truthSquareAudioSettings_v6_safari_buffer";
+  const LS_KEY = "truthSquareAudioSettings_v7_mobile";
   const defaultSettings = { musicVol: 25, sfxVol: 70 };
   let settings = loadSettings();
 
@@ -219,21 +440,20 @@
   let winnerShown = false;
 
   const audio = {
-    ready: false,
-    initPromise: null,
-    wakingPromise: null,
-    ctx: null,
-    masterMusicGain: null,
-    bgGain: null,
-    winGain: null,
-    sfxGain: null,
-    bgSrc: null,
-    winSrc: null,
-    buffers: {},
-    keepAliveOsc: null,
-    // fallback pool if buffers fail (rare)
-    htmlPool: { click: [], coin: [], bankrupt: [], double: [] },
-    htmlIdx: { click: 0, coin: 0, bankrupt: 0, double: 0 }
+    ready:false,
+    initPromise:null,
+    wakingPromise:null,
+    ctx:null,
+    masterMusicGain:null,
+    bgGain:null,
+    winGain:null,
+    sfxGain:null,
+    bgSrc:null,
+    winSrc:null,
+    buffers:{},
+    keepAliveOsc:null,
+    htmlPool:{ click:[], coin:[], bankrupt:[], double:[] },
+    htmlIdx:{ click:0, coin:0, bankrupt:0, double:0 }
   };
 
   const els = {
@@ -266,8 +486,7 @@
     muteBtn: document.getElementById("muteBtn"),
 
     musicBgEl: document.getElementById("musicBgEl"),
-    musicWinEl: document.getElementById("musicWinEl"),
-    safariNote: document.getElementById("safariNote")
+    musicWinEl: document.getElementById("musicWinEl")
   };
 
   function setLog(msg){ els.log.textContent = msg; }
@@ -323,6 +542,18 @@
     }
   }
 
+  async function loadSfxBuffers(){
+    const entries = Object.entries(sfxFiles);
+    await Promise.all(entries.map(async ([key, url]) => {
+      try{
+        const res = await fetch(url, { cache:"no-store" });
+        if (!res.ok) throw new Error("fetch failed");
+        const arr = await res.arrayBuffer();
+        audio.buffers[key] = await audio.ctx.decodeAudioData(arr);
+      } catch (_) {}
+    }));
+  }
+
   function initAudioIfNeeded(){
     if (audio.ready) return Promise.resolve();
     if (audio.initPromise) return audio.initPromise;
@@ -330,8 +561,8 @@
     audio.initPromise = (async () => {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC){
-        setLog("WebAudio not supported; using basic audio.");
         initHtmlFallbackPool();
+        setLog("AudioContext not available. SFX may be limited on this device.");
         return;
       }
       const ctx = new AC();
@@ -357,18 +588,12 @@
 
       initHtmlFallbackPool();
 
-      await resumeAudio();      // resume before decode for Safari reliability
-      await loadSfxBuffers();   // may fail on file://, fallback pool remains
+      await resumeAudio();    // needed on iOS before decode feels reliable
+      await loadSfxBuffers(); // best path, but fallback still exists
 
       audio.ready = true;
       applySettingsToAudio();
       startBgMusic();
-
-      if (location.protocol === "file:"){
-        els.safariNote.innerHTML =
-          'You are running from <span class="warn">file://</span>. Safari may block or partially load audio files. ' +
-          'If SFX are inconsistent, run a tiny local server (see note below). This build will still try to work using fallbacks.';
-      }
     })();
 
     return audio.initPromise;
@@ -380,6 +605,8 @@
 
     audio.wakingPromise = (async () => {
       try{ if (audio.ctx.state === "suspended") await audio.ctx.resume(); } catch (_) {}
+
+      // Tiny keep-alive to reduce iOS Safari randomly suspending audio after UI changes
       try{
         if (!audio.keepAliveOsc){
           const osc = audio.ctx.createOscillator();
@@ -392,6 +619,7 @@
           audio.keepAliveOsc = osc;
         }
       } catch (_) {}
+
       await Promise.resolve();
     })().finally(() => { audio.wakingPromise = null; });
 
@@ -400,20 +628,6 @@
 
   function ensureAudioAwake(){
     return initAudioIfNeeded().then(() => resumeAudio());
-  }
-
-  async function loadSfxBuffers(){
-    const entries = Object.entries(sfxFiles);
-    await Promise.all(entries.map(async ([key, url]) => {
-      try{
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error("fetch failed");
-        const arr = await res.arrayBuffer();
-        audio.buffers[key] = await audio.ctx.decodeAudioData(arr);
-      } catch (_) {
-        // ignore
-      }
-    }));
   }
 
   function rampGain(node, value, ms = 500){
@@ -464,6 +678,7 @@
       } catch (_) {}
     }
 
+    // Fallback
     const pool = audio.htmlPool[key] || [];
     if (!pool.length) return;
     const i = audio.htmlIdx[key] % pool.length;
@@ -488,7 +703,7 @@
 
   function newBoard(){
     const cellCount = rows * cols;
-    board = buildDeck(cellCount).map(label => ({ label, revealed: false }));
+    board = buildDeck(cellCount).map(label => ({ label, revealed:false }));
     winnerShown = false;
     hidePopup(true);
     renderGrid();
@@ -506,7 +721,11 @@
       tile.className = "tile" + (cell.revealed ? " revealed" : "");
       tile.dataset.idx = idx;
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
-      tile.addEventListener("click", () => onPick(idx));
+
+      // Mobile reliability: use pointerup (plus touchend fallback)
+      tile.addEventListener("pointerup", (e) => { e.preventDefault(); onPick(idx); }, { passive:false });
+      tile.addEventListener("touchend", (e) => { e.preventDefault(); onPick(idx); }, { passive:false });
+
       els.grid.appendChild(tile);
     });
   }
@@ -514,6 +733,7 @@
   function imgTag(src, alt){
     return `<img class="tileImg" src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.textContent='${alt}'" />`;
   }
+
   function formatReveal(label){
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
@@ -608,6 +828,7 @@
 
   async function onPick(idx){
     await ensureAudioAwake();
+
     const cell = board[idx];
     if (!cell || cell.revealed) return;
 
@@ -649,11 +870,9 @@
   function updateScores(){
     els.teamAScore.textContent = scores.A;
     els.teamBScore.textContent = scores.B;
-
     const activeName = activeTeam === "A"
       ? (els.teamAName.innerText.trim() || "Team A")
       : (els.teamBName.innerText.trim() || "Team B");
-
     els.activeTeamBadge.textContent = `Active: ${activeName}`;
   }
 
@@ -683,12 +902,12 @@
     els.settingsOverlay.setAttribute("aria-hidden", "true");
   }
 
-  // UI hooks
-  els.toggleTeamBtn.addEventListener("click", async () => { await ensureAudioAwake(); toggleTeam(); });
+  // UI hooks (use pointerup for mobile)
+  els.toggleTeamBtn.addEventListener("pointerup", (e) => { e.preventDefault(); ensureAudioAwake().then(toggleTeam); }, { passive:false });
+  els.settingsBtn.addEventListener("pointerup", (e) => { e.preventDefault(); openSettings(); }, { passive:false });
 
-  els.settingsBtn.addEventListener("click", openSettings);
-  els.closeSettingsBtn.addEventListener("click", closeSettings);
-  els.settingsOverlay.addEventListener("click", (e) => { if (e.target === els.settingsOverlay) closeSettings(); });
+  els.closeSettingsBtn.addEventListener("pointerup", (e) => { e.preventDefault(); closeSettings(); }, { passive:false });
+  els.settingsOverlay.addEventListener("pointerup", (e) => { if (e.target === els.settingsOverlay) closeSettings(); });
 
   // Sliders
   els.musicVol.addEventListener("input", () => {
@@ -697,6 +916,7 @@
     saveSettings();
     applySettingsToAudio();
   });
+
   els.sfxVol.addEventListener("input", () => {
     settings.sfxVol = parseInt(els.sfxVol.value, 10);
     els.sfxVolVal.textContent = String(settings.sfxVol);
@@ -704,44 +924,67 @@
     applySettingsToAudio();
   });
 
-  els.defaultsBtn.addEventListener("click", async () => {
+  els.defaultsBtn.addEventListener("pointerup", async (e) => {
+    e.preventDefault();
     await ensureAudioAwake();
     settings = { ...defaultSettings };
     saveSettings();
     applySettingsToUI();
     applySettingsToAudio();
     setLog("Audio settings reset to defaults.");
-  });
+  }, { passive:false });
 
-  els.testSfxBtn.addEventListener("click", async () => {
+  els.testSfxBtn.addEventListener("pointerup", async (e) => {
+    e.preventDefault();
     await playSfx("coin");
     setLog("Test SFX played.");
-  });
+  }, { passive:false });
 
-  els.newBoardBtn.addEventListener("click", async () => { await ensureAudioAwake(); newBoard(); closeSettings(); });
-  els.resetScoresBtn.addEventListener("click", async () => { await ensureAudioAwake(); resetScores(); });
+  els.newBoardBtn.addEventListener("pointerup", async (e) => {
+    e.preventDefault();
+    await ensureAudioAwake();
+    newBoard();
+    closeSettings();
+  }, { passive:false });
 
-  els.muteBtn.addEventListener("click", async () => {
+  els.resetScoresBtn.addEventListener("pointerup", async (e) => {
+    e.preventDefault();
+    await ensureAudioAwake();
+    resetScores();
+  }, { passive:false });
+
+  els.muteBtn.addEventListener("pointerup", async (e) => {
+    e.preventDefault();
     await ensureAudioAwake();
     muted = !muted;
     setMuteUI();
     applySettingsToAudio();
     setLog(muted ? "Sound muted." : "Sound on.");
-  });
+  }, { passive:false });
 
   // Popup close
-  els.closePopupBtn.addEventListener("click", () => hidePopup());
-  els.overlay.addEventListener("click", (e) => { if (e.target === els.overlay) hidePopup(); });
+  els.closePopupBtn.addEventListener("pointerup", (e) => { e.preventDefault(); hidePopup(); }, { passive:false });
+  els.overlay.addEventListener("pointerup", (e) => { if (e.target === els.overlay) hidePopup(); });
 
-  // Init
+  // Init UI + board
   applySettingsToUI();
   setMuteUI();
   updateScores();
   newBoard();
 
-  // Safari helpers
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) ensureAudioAwake(); });
-  window.addEventListener("pointerdown", () => ensureAudioAwake(), { passive:true });
+  // iOS unlock: first tap anywhere unlocks audio + starts music
+  const unlock = async () => {
+    await ensureAudioAwake();
+    setLog("Audio unlocked ✅");
+    window.removeEventListener("touchstart", unlock);
+    window.removeEventListener("pointerdown", unlock);
+  };
+  window.addEventListener("touchstart", unlock, { passive:true, once:true });
+  window.addEventListener("pointerdown", unlock, { passive:true, once:true });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) ensureAudioAwake();
+  });
 </script>
 </body>
 </html>
