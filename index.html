@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kingdom Clash</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:rgba(0,0,0,0.55);
+      --tile:rgba(255,255,255,0.12);
+      --tile-hover:rgba(255,255,255,0.18);
+      --tile-revealed:rgba(0,0,0,0.55);
+      --text:#f5f7ff;
+      --accent:#ffd24a;
+      --danger:#ff5c5c;
+      --good:#59ffa0;
+    }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);
+      height:100vh; display:grid; grid-template-rows:1fr auto; overflow:hidden; }
+    .stage{ position:relative; display:grid; place-items:center; padding:24px; }
+    .bg{ position:absolute; inset:0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)), url("castle.jpg");
+      background-size:cover; background-position:center; filter:saturate(1.05); transform:scale(1.02); }
+    .bg::after{ content:""; position:absolute; inset:0;
+      background:radial-gradient(circle at 50% 40%, transparent 0 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.7) 100%); }
+    .grid-wrap{ position:relative; width:min(92vw, 980px); aspect-ratio:4/3; display:grid; place-items:center; }
+    .grid{ width:100%; height:100%; display:grid; gap:10px; padding:10px; }
+    .tile{ border-radius:14px; background:var(--tile); border:2px dashed rgba(255,255,255,0.20);
+      display:grid; place-items:center; font-weight:900; font-size:clamp(18px, 2.2vw, 34px);
+      user-select:none; cursor:pointer; transition:transform 0.08s ease, background 0.15s ease;
+      text-shadow:0 2px 10px rgba(0,0,0,0.45); transform-style:preserve-3d; perspective:900px;
+      position:relative; overflow:hidden; }
+    .tile:hover{ background:var(--tile-hover); transform:translateY(-2px); }
+    .tile.revealed{ background:var(--tile-revealed); border-style:solid; cursor:default; transform:none; }
+    .tile.flipping{ animation:flip 420ms ease both; }
+    @keyframes flip{ 0%{transform:rotateY(0)} 45%{transform:rotateY(90deg)} 55%{transform:rotateY(90deg)} 100%{transform:rotateY(0)} }
+    .tileImg{ width:86%; height:86%; object-fit:contain; filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35)); }
+
+    .panel{ background:var(--panel); padding:14px 16px; display:grid; grid-template-columns:1.4fr 1.4fr 1.2fr; gap:12px; align-items:center; }
+    .team{ display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px 12px; border-radius:14px;
+      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); }
+    .team h2{ margin:0; font-size:16px; opacity:0.9; font-weight:800; }
+    .score{ font-size:28px; font-weight:1000; color:var(--accent); }
+    .controls{ display:grid; gap:8px; justify-items:end; }
+    button{ border:none; border-radius:12px; padding:10px 12px; font-weight:900; cursor:pointer;
+      background:rgba(255,255,255,0.14); color:var(--text); border:1px solid rgba(255,255,255,0.22); }
+    button:hover{ background:rgba(255,255,255,0.18); }
+    .activeBadge{ display:inline-block; padding:6px 10px; border-radius:999px; font-weight:900;
+      background:rgba(255,210,74,0.18); border:1px solid rgba(255,210,74,0.35); color:var(--accent); justify-self:end; }
+    .log{ font-size:13px; opacity:0.9; text-align:right; line-height:1.25; }
+    @media (max-width:800px){ .panel{grid-template-columns:1fr;} .controls{justify-items:stretch;} .log{text-align:left;} }
+
+    /* POPUP */
+    .overlay{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); z-index:9999; }
+    .hidden{ display:none; }
+    .popup{ width:min(88vw, 560px); border-radius:22px; background:rgba(15,18,32,0.92);
+      border:1px solid rgba(255,255,255,0.18); box-shadow:0 20px 70px rgba(0,0,0,0.55);
+      padding:18px 18px 14px; transform:scale(0.92); opacity:0; animation:popIn 220ms ease forwards; }
+    @keyframes popIn{ to{ transform:scale(1); opacity:1; } }
+    .popupTop{ display:grid; gap:4px; justify-items:center; margin-bottom:10px; }
+    .popupTitle{ font-weight:1000; font-size:clamp(30px, 4vw, 54px); letter-spacing:0.5px; text-align:center; }
+    .popupSub{ opacity:0.9; font-weight:900; text-align:center; }
+    .popupAnim{ position:relative; height:260px; border-radius:18px; background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10); overflow:hidden; display:grid; place-items:center; }
+    .popupImg{ width:min(82%, 340px); height:auto; object-fit:contain; filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
+      animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards; transform-origin:50% 65%; opacity:0; }
+    @keyframes imgPop{ 0%{transform:translateY(12px) scale(0.92); opacity:0;}
+      40%{opacity:1;} 60%{transform:translateY(-6px) scale(1.05);} 100%{transform:translateY(0) scale(1); opacity:1;} }
+    .spark{ position:absolute; font-size:28px; animation:spark 750ms ease forwards; opacity:0; }
+    @keyframes spark{
+      0%{ transform:translate(var(--x), var(--y)) scale(0.7); opacity:0; }
+      18%{ opacity:1; }
+      100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
+    }
+    .popupBtn{ width:100%; margin-top:12px; padding:12px 12px; border-radius:14px; font-weight:1000;
+      background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.22); }
+
+    /* SETTINGS */
+    .settingsCard{ width:min(92vw, 520px); border-radius:20px; background:rgba(15,18,32,0.92);
+      border:1px solid rgba(255,255,255,0.18); box-shadow:0 20px 70px rgba(0,0,0,0.55);
+      padding:16px 16px 14px; display:grid; gap:12px; transform:scale(0.95); opacity:0; animation:popIn 220ms ease forwards; }
+    .settingsHeader{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .settingsTitle{ font-weight:1000; font-size:18px; letter-spacing:0.2px; }
+    .sliderRow{ display:grid; gap:6px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); }
+    .sliderTop{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .sliderLabel{ font-weight:900; opacity:0.92; }
+    .sliderVal{ font-weight:1000; color:var(--accent); }
+    input[type="range"]{ width:100%; }
+    .settingsBtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .settingsBtns3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .miniNote{ opacity:0.8; font-size:12px; line-height:1.25; }
+    .warn{ color:var(--accent); font-weight:900; }
+  </style>
+</head>
+
+<body>
+  <div class="stage">
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid-wrap">
+      <div id="grid" class="grid"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="team">
+      <div>
+        <h2 contenteditable="true" id="teamAName">Team A</h2>
+        <div style="opacity:.8;font-size:12px;">(click name to edit)</div>
+      </div>
+      <div class="score" id="teamAScore">0</div>
+    </div>
+
+    <div class="team">
+      <div>
+        <h2 contenteditable="true" id="teamBName">Team B</h2>
+        <div style="opacity:.8;font-size:12px;">(click name to edit)</div>
+      </div>
+      <div class="score" id="teamBScore">0</div>
+    </div>
+
+    <div class="controls">
+      <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
+      <button id="toggleTeamBtn">Toggle Active Team</button>
+      <button id="settingsBtn">Settings</button>
+      <div class="log" id="log">Click a square to reveal.</div>
+    </div>
+  </div>
+
+  <!-- POPUP -->
+  <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <div class="popup" role="dialog" aria-modal="true">
+      <div class="popupTop">
+        <div id="popupTitle" class="popupTitle">+100</div>
+        <div id="popupSub" class="popupSub">points</div>
+      </div>
+      <div id="popupAnim" class="popupAnim"></div>
+      <button id="closePopupBtn" class="popupBtn">OK</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="settingsCard" role="dialog" aria-modal="true">
+      <div class="settingsHeader">
+        <div class="settingsTitle">Audio & Game Settings</div>
+        <button id="closeSettingsBtn" style="padding:8px 10px;border-radius:12px;">Close</button>
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
+          <div class="sliderLabel">Background Music</div>
+          <div class="sliderVal"><span id="musicVolVal">25</span>%</div>
+        </div>
+        <input id="musicVol" type="range" min="0" max="100" step="1" value="25" />
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
+          <div class="sliderLabel">Sound Effects</div>
+          <div class="sliderVal"><span id="sfxVolVal">70</span>%</div>
+        </div>
+        <input id="sfxVol" type="range" min="0" max="100" step="1" value="70" />
+      </div>
+
+      <div class="settingsBtns3">
+        <button id="newBoardBtn">New Board</button>
+        <button id="resetScoresBtn">Reset Scores</button>
+        <button id="muteBtn">Mute: Off</button>
+      </div>
+
+      <div class="settingsBtns">
+        <button id="testSfxBtn">Test SFX</button>
+        <button id="defaultsBtn">Defaults</button>
+      </div>
+
+      <div class="miniNote" id="safariNote">
+        This build uses the most reliable Safari path:
+        <b>AudioBuffers</b> for SFX (no glitchy media-element reuse) + WebAudio crossfade music (no ducking).
+        <span class="warn">If you open this as a local file (file://), Safari may block loading audio files.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MUSIC (media elements routed into WebAudio for crossfade) -->
+  <audio id="musicBgEl" src="bg-music.mp3" preload="auto" loop playsinline></audio>
+  <audio id="musicWinEl" src="winner-music.mp3" preload="auto" loop playsinline></audio>
+
+<script>
+  // ======== CONFIG ========
+  const rows = 4, cols = 5;
+  const moneyValues = [100, 200, 500, 1000];
+  const numBankrupt = 2;
+  const numDouble = 2;
+
+  const relSfx = { click: 0.22, coin: 0.90, bankrupt: 1.00, double: 0.95 };
+  const sfxFiles = { click: "click.mp3", coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
+
+  const popupAutoCloseMs = 3000;
+  const tileFlipMs = 420;
+  const musicFadeMs = 700;
+  // ========================
+
+  const outcomeImages = {
+    "100":"100.png","200":"200.png","500":"500.png","1000":"1000.png",
+    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
+  };
+
+  const LS_KEY = "truthSquareAudioSettings_v6_safari_buffer";
+  const defaultSettings = { musicVol: 25, sfxVol: 70 };
+  let settings = loadSettings();
+
+  let activeTeam = "A";
+  let scores = { A: 0, B: 0 };
+  let board = [];
+  let muted = false;
+
+  let popupTimer = null;
+  let winnerShown = false;
+
+  const audio = {
+    ready: false,
+    initPromise: null,
+    wakingPromise: null,
+    ctx: null,
+    masterMusicGain: null,
+    bgGain: null,
+    winGain: null,
+    sfxGain: null,
+    bgSrc: null,
+    winSrc: null,
+    buffers: {},
+    keepAliveOsc: null,
+    // fallback pool if buffers fail (rare)
+    htmlPool: { click: [], coin: [], bankrupt: [], double: [] },
+    htmlIdx: { click: 0, coin: 0, bankrupt: 0, double: 0 }
+  };
+
+  const els = {
+    grid: document.getElementById("grid"),
+    teamAName: document.getElementById("teamAName"),
+    teamBName: document.getElementById("teamBName"),
+    teamAScore: document.getElementById("teamAScore"),
+    teamBScore: document.getElementById("teamBScore"),
+    activeTeamBadge: document.getElementById("activeTeamBadge"),
+    toggleTeamBtn: document.getElementById("toggleTeamBtn"),
+    settingsBtn: document.getElementById("settingsBtn"),
+    log: document.getElementById("log"),
+
+    overlay: document.getElementById("overlay"),
+    popupTitle: document.getElementById("popupTitle"),
+    popupSub: document.getElementById("popupSub"),
+    popupAnim: document.getElementById("popupAnim"),
+    closePopupBtn: document.getElementById("closePopupBtn"),
+
+    settingsOverlay: document.getElementById("settingsOverlay"),
+    closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+    musicVol: document.getElementById("musicVol"),
+    sfxVol: document.getElementById("sfxVol"),
+    musicVolVal: document.getElementById("musicVolVal"),
+    sfxVolVal: document.getElementById("sfxVolVal"),
+    testSfxBtn: document.getElementById("testSfxBtn"),
+    defaultsBtn: document.getElementById("defaultsBtn"),
+    newBoardBtn: document.getElementById("newBoardBtn"),
+    resetScoresBtn: document.getElementById("resetScoresBtn"),
+    muteBtn: document.getElementById("muteBtn"),
+
+    musicBgEl: document.getElementById("musicBgEl"),
+    musicWinEl: document.getElementById("musicWinEl"),
+    safariNote: document.getElementById("safariNote")
+  };
+
+  function setLog(msg){ els.log.textContent = msg; }
+  function setMuteUI(){ els.muteBtn.textContent = `Mute: ${muted ? "On" : "Off"}`; }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { ...defaultSettings };
+      const obj = JSON.parse(raw);
+      return {
+        musicVol: Number.isFinite(+obj.musicVol) ? +obj.musicVol : defaultSettings.musicVol,
+        sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol
+      };
+    } catch (_) { return { ...defaultSettings }; }
+  }
+  function saveSettings(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (_) {} }
+
+  function applySettingsToUI(){
+    els.musicVol.value = String(settings.musicVol);
+    els.sfxVol.value = String(settings.sfxVol);
+    els.musicVolVal.textContent = String(settings.musicVol);
+    els.sfxVolVal.textContent = String(settings.sfxVol);
+  }
+
+  function applySettingsToAudio(){
+    if (!audio.ready) return;
+    const music = muted ? 0 : clamp01(settings.musicVol / 100);
+    const sfx = muted ? 0 : clamp01(settings.sfxVol / 100);
+    audio.masterMusicGain.gain.setValueAtTime(music, audio.ctx.currentTime);
+    audio.sfxGain.gain.setValueAtTime(sfx, audio.ctx.currentTime);
+  }
+
+  function initHtmlFallbackPool(){
+    for (const k of Object.keys(sfxFiles)){
+      audio.htmlPool[k] = [];
+      audio.htmlIdx[k] = 0;
+      for (let i = 0; i < 4; i++){
+        const a = new Audio(sfxFiles[k]);
+        a.preload = "auto";
+        a.playsInline = true;
+        audio.htmlPool[k].push(a);
+      }
+    }
+  }
+
+  function initAudioIfNeeded(){
+    if (audio.ready) return Promise.resolve();
+    if (audio.initPromise) return audio.initPromise;
+
+    audio.initPromise = (async () => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC){
+        setLog("WebAudio not supported; using basic audio.");
+        initHtmlFallbackPool();
+        return;
+      }
+      const ctx = new AC();
+      audio.ctx = ctx;
+
+      audio.masterMusicGain = ctx.createGain();
+      audio.bgGain = ctx.createGain();
+      audio.winGain = ctx.createGain();
+      audio.sfxGain = ctx.createGain();
+
+      audio.bgGain.connect(audio.masterMusicGain);
+      audio.winGain.connect(audio.masterMusicGain);
+      audio.masterMusicGain.connect(ctx.destination);
+      audio.sfxGain.connect(ctx.destination);
+
+      audio.bgSrc = ctx.createMediaElementSource(els.musicBgEl);
+      audio.winSrc = ctx.createMediaElementSource(els.musicWinEl);
+      audio.bgSrc.connect(audio.bgGain);
+      audio.winSrc.connect(audio.winGain);
+
+      audio.bgGain.gain.value = 1;
+      audio.winGain.gain.value = 0;
+
+      initHtmlFallbackPool();
+
+      await resumeAudio();      // resume before decode for Safari reliability
+      await loadSfxBuffers();   // may fail on file://, fallback pool remains
+
+      audio.ready = true;
+      applySettingsToAudio();
+      startBgMusic();
+
+      if (location.protocol === "file:"){
+        els.safariNote.innerHTML =
+          'You are running from <span class="warn">file://</span>. Safari may block or partially load audio files. ' +
+          'If SFX are inconsistent, run a tiny local server (see note below). This build will still try to work using fallbacks.';
+      }
+    })();
+
+    return audio.initPromise;
+  }
+
+  function resumeAudio(){
+    if (!audio.ctx) return Promise.resolve();
+    if (audio.wakingPromise) return audio.wakingPromise;
+
+    audio.wakingPromise = (async () => {
+      try{ if (audio.ctx.state === "suspended") await audio.ctx.resume(); } catch (_) {}
+      try{
+        if (!audio.keepAliveOsc){
+          const osc = audio.ctx.createOscillator();
+          const g = audio.ctx.createGain();
+          g.gain.value = 0.00001;
+          osc.frequency.value = 30;
+          osc.connect(g);
+          g.connect(audio.ctx.destination);
+          osc.start();
+          audio.keepAliveOsc = osc;
+        }
+      } catch (_) {}
+      await Promise.resolve();
+    })().finally(() => { audio.wakingPromise = null; });
+
+    return audio.wakingPromise;
+  }
+
+  function ensureAudioAwake(){
+    return initAudioIfNeeded().then(() => resumeAudio());
+  }
+
+  async function loadSfxBuffers(){
+    const entries = Object.entries(sfxFiles);
+    await Promise.all(entries.map(async ([key, url]) => {
+      try{
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("fetch failed");
+        const arr = await res.arrayBuffer();
+        audio.buffers[key] = await audio.ctx.decodeAudioData(arr);
+      } catch (_) {
+        // ignore
+      }
+    }));
+  }
+
+  function rampGain(node, value, ms = 500){
+    if (!audio.ready || !audio.ctx) return;
+    const t = audio.ctx.currentTime;
+    const end = t + ms / 1000;
+    node.gain.cancelScheduledValues(t);
+    node.gain.setValueAtTime(node.gain.value, t);
+    node.gain.linearRampToValueAtTime(value, end);
+  }
+
+  function ensureMusicPlaying(){
+    els.musicBgEl.play().catch(() => {});
+    els.musicWinEl.play().catch(() => {});
+  }
+
+  function startBgMusic(){
+    if (!audio.ready || muted) return;
+    ensureMusicPlaying();
+    rampGain(audio.bgGain, 1, musicFadeMs);
+    rampGain(audio.winGain, 0, musicFadeMs);
+  }
+
+  function startWinnerMusic(){
+    if (!audio.ready || muted) return;
+    ensureMusicPlaying();
+    rampGain(audio.bgGain, 0, musicFadeMs);
+    rampGain(audio.winGain, 1, musicFadeMs);
+  }
+
+  async function playSfx(key){
+    await ensureAudioAwake();
+    if (muted) return;
+
+    const buf = audio.buffers[key];
+    if (audio.ctx && buf){
+      try{
+        const src = audio.ctx.createBufferSource();
+        src.buffer = buf;
+
+        const g = audio.ctx.createGain();
+        g.gain.value = clamp01(relSfx[key] ?? 1);
+
+        src.connect(g);
+        g.connect(audio.sfxGain);
+        src.start(0);
+        return;
+      } catch (_) {}
+    }
+
+    const pool = audio.htmlPool[key] || [];
+    if (!pool.length) return;
+    const i = audio.htmlIdx[key] % pool.length;
+    audio.htmlIdx[key] = (audio.htmlIdx[key] + 1) % pool.length;
+
+    const el = pool[i];
+    try{ el.pause(); } catch (_) {}
+    try{ el.currentTime = 0; } catch (_) { try{ el.load(); } catch (_) {} }
+    el.volume = clamp01((settings.sfxVol / 100) * (relSfx[key] ?? 1));
+    el.play().catch(() => {});
+  }
+
+  function buildDeck(cellCount){
+    const deck = [];
+    for (let i = 0; i < numBankrupt; i++) deck.push("BANKRUPT");
+    for (let i = 0; i < numDouble; i++) deck.push("x2");
+    while (deck.length < cellCount){
+      deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
+    }
+    return shuffle(deck);
+  }
+
+  function newBoard(){
+    const cellCount = rows * cols;
+    board = buildDeck(cellCount).map(label => ({ label, revealed: false }));
+    winnerShown = false;
+    hidePopup(true);
+    renderGrid();
+    setLog("New board ready. Ask a question 😄");
+    if (audio.ready) startBgMusic();
+  }
+
+  function renderGrid(){
+    els.grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    els.grid.innerHTML = "";
+
+    board.forEach((cell, idx) => {
+      const tile = document.createElement("div");
+      tile.className = "tile" + (cell.revealed ? " revealed" : "");
+      tile.dataset.idx = idx;
+      tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
+      tile.addEventListener("click", () => onPick(idx));
+      els.grid.appendChild(tile);
+    });
+  }
+
+  function imgTag(src, alt){
+    return `<img class="tileImg" src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.textContent='${alt}'" />`;
+  }
+  function formatReveal(label){
+    const src = outcomeImages[label];
+    if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
+    if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
+    if (label === "x2") return `<div style="color: var(--good);">x2</div>`;
+    return `<div style="color: var(--accent);">${label}</div>`;
+  }
+
+  function addSparkles(count = 10){
+    for (let i = 0; i < count; i++){
+      const s = document.createElement("div");
+      s.className = "spark";
+      s.textContent = "✨";
+      s.style.left = "50%";
+      s.style.top = "60%";
+      s.style.setProperty("--x", (Math.random() * 320 - 160) + "px");
+      s.style.setProperty("--y", (Math.random() * 70 - 25) + "px");
+      s.style.animationDelay = (Math.random() * 140) + "ms";
+      els.popupAnim.appendChild(s);
+    }
+  }
+
+  function showPopup(kind, title, sub, color, imageKey, autoClose = true){
+    if (popupTimer) clearTimeout(popupTimer);
+
+    els.popupAnim.innerHTML = "";
+    els.overlay.classList.remove("hidden");
+    els.overlay.setAttribute("aria-hidden", "false");
+
+    els.popupTitle.textContent = title;
+    els.popupTitle.style.color = color;
+    els.popupSub.textContent = sub;
+
+    const src = outcomeImages[imageKey];
+    if (src){
+      const im = document.createElement("img");
+      im.className = "popupImg";
+      im.src = src;
+      im.alt = imageKey;
+      els.popupAnim.appendChild(im);
+    } else {
+      const fallback = document.createElement("div");
+      fallback.style.fontSize = "72px";
+      fallback.textContent = (imageKey === "BANKRUPT") ? "💥" : "⭐";
+      els.popupAnim.appendChild(fallback);
+    }
+
+    if (kind === "money") addSparkles(8);
+    if (kind === "winner") addSparkles(14);
+
+    if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
+  }
+
+  function hidePopup(){
+    if (popupTimer){ clearTimeout(popupTimer); popupTimer = null; }
+    els.overlay.classList.add("hidden");
+    els.overlay.setAttribute("aria-hidden", "true");
+  }
+
+  async function applyOutcome(label){
+    const teamName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+
+    if (label === "BANKRUPT"){
+      scores[activeTeam] = 0;
+      updateScores();
+      setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
+      await playSfx("bankrupt");
+      showPopup("bankrupt", "BANKRUPT", "Score reset to 0", "var(--danger)", "BANKRUPT", true);
+      return;
+    }
+
+    if (label === "x2"){
+      scores[activeTeam] *= 2;
+      updateScores();
+      setLog(`${teamName} got x2! Score doubled.`);
+      await playSfx("double");
+      showPopup("double", "x2", "Score doubled!", "var(--good)", "x2", true);
+      return;
+    }
+
+    const value = Number(label);
+    if (!Number.isFinite(value)) return;
+
+    scores[activeTeam] += value;
+    updateScores();
+    setLog(`${teamName} gained +${value}.`);
+    await playSfx("coin");
+    showPopup("money", `+${value}`, "points", "var(--accent)", String(value), true);
+  }
+
+  async function onPick(idx){
+    await ensureAudioAwake();
+    const cell = board[idx];
+    if (!cell || cell.revealed) return;
+
+    const tileEl = els.grid.querySelector(`[data-idx="${idx}"]`);
+    if (!tileEl) return;
+
+    playSfx("click");
+    tileEl.classList.add("flipping");
+
+    setTimeout(async () => {
+      cell.revealed = true;
+      await applyOutcome(cell.label);
+      renderGrid();
+      checkForWinner();
+    }, Math.floor(tileFlipMs * 0.52));
+  }
+
+  function checkForWinner(){
+    if (winnerShown) return;
+    const done = board.every(c => c.revealed);
+    if (!done) return;
+
+    winnerShown = true;
+    setTimeout(() => {
+      const aName = els.teamAName.innerText.trim() || "Team A";
+      const bName = els.teamBName.innerText.trim() || "Team B";
+
+      let title, sub;
+      if (scores.A > scores.B){ title = `${aName} WINS!`; sub = `Final: ${scores.A} to ${scores.B}`; }
+      else if (scores.B > scores.A){ title = `${bName} WINS!`; sub = `Final: ${scores.B} to ${scores.A}`; }
+      else { title = `IT'S A TIE!`; sub = `Final: ${scores.A} to ${scores.B}`; }
+
+      if (audio.ready) startWinnerMusic();
+      showPopup("winner", title, sub, "var(--accent)", "WINNER", false);
+      setLog(`Board complete. ${title}`);
+    }, 350);
+  }
+
+  function updateScores(){
+    els.teamAScore.textContent = scores.A;
+    els.teamBScore.textContent = scores.B;
+
+    const activeName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+
+    els.activeTeamBadge.textContent = `Active: ${activeName}`;
+  }
+
+  function toggleTeam(){
+    activeTeam = activeTeam === "A" ? "B" : "A";
+    updateScores();
+    const teamName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+    setLog(`Now picking: ${teamName}`);
+  }
+
+  function resetScores(){
+    scores = { A: 0, B: 0 };
+    updateScores();
+    setLog("Scores reset.");
+  }
+
+  function openSettings(){
+    ensureAudioAwake();
+    applySettingsToUI();
+    els.settingsOverlay.classList.remove("hidden");
+    els.settingsOverlay.setAttribute("aria-hidden", "false");
+  }
+  function closeSettings(){
+    els.settingsOverlay.classList.add("hidden");
+    els.settingsOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  // UI hooks
+  els.toggleTeamBtn.addEventListener("click", async () => { await ensureAudioAwake(); toggleTeam(); });
+
+  els.settingsBtn.addEventListener("click", openSettings);
+  els.closeSettingsBtn.addEventListener("click", closeSettings);
+  els.settingsOverlay.addEventListener("click", (e) => { if (e.target === els.settingsOverlay) closeSettings(); });
+
+  // Sliders
+  els.musicVol.addEventListener("input", () => {
+    settings.musicVol = parseInt(els.musicVol.value, 10);
+    els.musicVolVal.textContent = String(settings.musicVol);
+    saveSettings();
+    applySettingsToAudio();
+  });
+  els.sfxVol.addEventListener("input", () => {
+    settings.sfxVol = parseInt(els.sfxVol.value, 10);
+    els.sfxVolVal.textContent = String(settings.sfxVol);
+    saveSettings();
+    applySettingsToAudio();
+  });
+
+  els.defaultsBtn.addEventListener("click", async () => {
+    await ensureAudioAwake();
+    settings = { ...defaultSettings };
+    saveSettings();
+    applySettingsToUI();
+    applySettingsToAudio();
+    setLog("Audio settings reset to defaults.");
+  });
+
+  els.testSfxBtn.addEventListener("click", async () => {
+    await playSfx("coin");
+    setLog("Test SFX played.");
+  });
+
+  els.newBoardBtn.addEventListener("click", async () => { await ensureAudioAwake(); newBoard(); closeSettings(); });
+  els.resetScoresBtn.addEventListener("click", async () => { await ensureAudioAwake(); resetScores(); });
+
+  els.muteBtn.addEventListener("click", async () => {
+    await ensureAudioAwake();
+    muted = !muted;
+    setMuteUI();
+    applySettingsToAudio();
+    setLog(muted ? "Sound muted." : "Sound on.");
+  });
+
+  // Popup close
+  els.closePopupBtn.addEventListener("click", () => hidePopup());
+  els.overlay.addEventListener("click", (e) => { if (e.target === els.overlay) hidePopup(); });
+
+  // Init
+  applySettingsToUI();
+  setMuteUI();
+  updateScores();
+  newBoard();
+
+  // Safari helpers
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) ensureAudioAwake(); });
+  window.addEventListener("pointerdown", () => ensureAudioAwake(), { passive:true });
+</script>
+</body>
+</html>
