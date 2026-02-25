@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Kingdom Clash</title>
+  <title>Truth Square (Rebuild)</title>
   <style>
     :root{
       --bg:#0b1020;
@@ -16,30 +16,16 @@
       --danger:#ff5c5c;
       --good:#59ffa0;
     }
-
     *{ box-sizing:border-box; }
-
-    html, body{
-      height:100%;
-      overscroll-behavior:none;
-      -webkit-text-size-adjust:100%;
-    }
-
+    html, body{ height:100%; overscroll-behavior:none; -webkit-text-size-adjust:100%; }
     body{
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background:var(--bg);
-      color:var(--text);
-      height:100vh;
-      display:grid;
-      grid-template-rows:1fr auto;
-      overflow:hidden;
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg); color:var(--text);
+      height:100vh; display:grid; grid-template-rows:1fr auto; overflow:hidden;
     }
 
     .stage{
-      position:relative;
-      display:grid;
-      place-items:center;
+      position:relative; display:grid; place-items:center;
       padding:24px;
       padding-top: max(24px, env(safe-area-inset-top));
       padding-left: max(24px, env(safe-area-inset-left));
@@ -47,51 +33,40 @@
     }
 
     .bg{
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none; /* IMPORTANT for mobile taps */
+      position:absolute; inset:0; z-index:0;
+      pointer-events:none;
       background:
         linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)),
         url("castle.jpg");
-      background-size:cover;
-      background-position:center;
+      background-size:cover; background-position:center;
       filter:saturate(1.05);
       transform:scale(1.02);
     }
-
     .bg::after{
-      content:"";
-      position:absolute;
-      inset:0;
+      content:""; position:absolute; inset:0;
       background:radial-gradient(circle at 50% 40%, transparent 0 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.7) 100%);
     }
 
     .grid-wrap{
-      position:relative;
-      z-index:1; /* ensure above bg on all browsers */
+      position:relative; z-index:1;
       width:min(92vw, 980px);
-      /* iOS Safari sometimes flubs aspect-ratio sizing; give a height fallback */
       height:min(70vh, 720px);
-      aspect-ratio:4 / 3;
-      display:grid;
-      place-items:center;
+      aspect-ratio:4/3;
+      display:grid; place-items:center;
     }
-
     .grid{
-      width:100%;
-      height:100%;
-      display:grid;
-      gap:10px;
-      padding:10px;
+      width:100%; height:100%;
+      display:grid; gap:10px; padding:10px;
+      /* helps mobile browsers treat taps as “direct” interactions */
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .tile{
       border-radius:14px;
       background:var(--tile);
       border:2px dashed rgba(255,255,255,0.20);
-      display:grid;
-      place-items:center;
+      display:grid; place-items:center;
       font-weight:900;
       font-size:clamp(18px, 2.6vw, 36px);
       user-select:none;
@@ -102,21 +77,11 @@
       perspective:900px;
       position:relative;
       overflow:hidden;
-
-      /* Mobile tap reliability */
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
-
-    .tile:hover{ background:var(--tile-hover); transform:translateY(-2px); }
-    .tile:active{ transform:translateY(0px) scale(0.99); }
-    .tile.revealed{
-      background:var(--tile-revealed);
-      border-style:solid;
-      cursor:default;
-      transform:none;
-    }
-
+    .tile:active{ transform:scale(0.99); }
+    .tile.revealed{ background:var(--tile-revealed); border-style:solid; cursor:default; transform:none; }
     .tile.flipping{ animation:flip 420ms ease both; }
     @keyframes flip{
       0%{ transform:rotateY(0deg); }
@@ -124,88 +89,46 @@
       55%{ transform:rotateY(90deg); }
       100%{ transform:rotateY(0deg); }
     }
-
-    .tileImg{
-      width:86%;
-      height:86%;
-      object-fit:contain;
-      filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35));
-    }
+    .tileImg{ width:86%; height:86%; object-fit:contain; filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35)); }
 
     .panel{
       background:var(--panel);
       padding:14px 16px;
       display:grid;
       grid-template-columns:1.4fr 1.4fr 1.2fr;
-      gap:12px;
-      align-items:center;
-
-      padding-bottom: max(14px, env(safe-area-inset-bottom));
-      padding-left: max(16px, env(safe-area-inset-left));
-      padding-right: max(16px, env(safe-area-inset-right));
+      gap:12px; align-items:center;
+      padding-bottom:max(14px, env(safe-area-inset-bottom));
+      padding-left:max(16px, env(safe-area-inset-left));
+      padding-right:max(16px, env(safe-area-inset-right));
     }
-
     .team{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:14px;
+      display:grid; grid-template-columns:1fr auto; gap:10px;
+      padding:10px 12px; border-radius:14px;
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
     }
-
-    .team h2{
-      margin:0;
-      font-size:16px;
-      opacity:0.9;
-      font-weight:800;
-    }
-
-    .score{
-      font-size:28px;
-      font-weight:1000;
-      color:var(--accent);
-    }
-
-    .controls{
-      display:grid;
-      gap:8px;
-      justify-items:end;
-    }
+    .team h2{ margin:0; font-size:16px; opacity:0.9; font-weight:800; }
+    .score{ font-size:28px; font-weight:1000; color:var(--accent); }
+    .controls{ display:grid; gap:8px; justify-items:end; }
 
     button{
-      border:none;
-      border-radius:12px;
-      padding:10px 12px;
-      font-weight:900;
-      cursor:pointer;
+      border:none; border-radius:12px; padding:10px 12px;
+      font-weight:900; cursor:pointer;
       background:rgba(255,255,255,0.14);
       color:var(--text);
       border:1px solid rgba(255,255,255,0.22);
-
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
-    button:hover{ background:rgba(255,255,255,0.18); }
 
     .activeBadge{
-      display:inline-block;
-      padding:6px 10px;
-      border-radius:999px;
-      font-weight:900;
+      display:inline-block; padding:6px 10px; border-radius:999px; font-weight:900;
       background:rgba(255,210,74,0.18);
       border:1px solid rgba(255,210,74,0.35);
       color:var(--accent);
       justify-self:end;
     }
-
-    .log{
-      font-size:13px;
-      opacity:0.9;
-      text-align:right;
-      line-height:1.25;
-    }
+    .log{ font-size:13px; opacity:0.9; text-align:right; line-height:1.25; }
 
     @media (max-width:800px){
       .panel{ grid-template-columns:1fr; }
@@ -214,51 +137,54 @@
       .grid-wrap{ height:min(62vh, 640px); }
     }
 
-    /* POPUP / SETTINGS OVERLAYS */
+    /* OVERLAYS */
     .overlay{
-      position:fixed;
-      inset:0;
-      display:grid;
-      place-items:center;
-      background:rgba(0,0,0,0.55);
-      backdrop-filter:blur(4px);
+      position:fixed; inset:0;
+      display:grid; place-items:center;
+      background:rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
       z-index:9999;
       padding:16px;
     }
     .hidden{ display:none; }
 
-    .popup{
-      width:min(88vw, 560px);
+    .card{
+      width:min(92vw, 560px);
       border-radius:22px;
-      background:rgba(15, 18, 32, 0.92);
+      background:rgba(15, 18, 32, 0.94);
       border:1px solid rgba(255,255,255,0.18);
       box-shadow:0 20px 70px rgba(0,0,0,0.55);
-      padding:18px 18px 14px;
-      transform:scale(0.92);
+      padding:16px 16px 14px;
+      display:grid; gap:12px;
+      transform:scale(0.96);
       opacity:0;
       animation:popIn 220ms ease forwards;
     }
-    @keyframes popIn{ to{ transform:scale(1); opacity:1; } }
+    @keyframes popIn{ to { transform:scale(1); opacity:1; } }
 
+    .bigTitle{ font-weight:1000; font-size:22px; }
+    .smallNote{ opacity:0.86; font-size:13px; line-height:1.3; }
+    .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    .pill{
+      display:inline-block; padding:6px 10px; border-radius:999px; font-weight:900;
+      background:rgba(255,210,74,0.18);
+      border:1px solid rgba(255,210,74,0.35);
+      color:var(--accent);
+    }
+
+    /* POPUP */
     .popupTop{ display:grid; gap:4px; justify-items:center; margin-bottom:10px; }
     .popupTitle{ font-weight:1000; font-size:clamp(30px, 4vw, 54px); letter-spacing:0.5px; text-align:center; }
     .popupSub{ opacity:0.9; font-weight:900; text-align:center; }
-
     .popupAnim{
-      position:relative;
-      height:260px;
-      border-radius:18px;
+      position:relative; height:260px; border-radius:18px;
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.10);
       overflow:hidden;
-      display:grid;
-      place-items:center;
+      display:grid; place-items:center;
     }
-
     .popupImg{
-      width:min(82%, 340px);
-      height:auto;
-      object-fit:contain;
+      width:min(82%, 340px); height:auto; object-fit:contain;
       filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
       animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards;
       transform-origin:50% 65%;
@@ -270,49 +196,40 @@
       60%{ transform:translateY(-6px) scale(1.05); }
       100%{ transform:translateY(0px) scale(1); opacity:1; }
     }
-
     .spark{ position:absolute; font-size:28px; animation:spark 750ms ease forwards; opacity:0; }
     @keyframes spark{
       0%{ transform:translate(var(--x), var(--y)) scale(0.7); opacity:0; }
       18%{ opacity:1; }
       100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
     }
+    .popupBtn{ width:100%; padding:12px 12px; border-radius:14px; font-weight:1000; }
 
-    .popupBtn{
-      width:100%;
-      margin-top:12px;
-      padding:12px 12px;
-      border-radius:14px;
-      font-weight:1000;
-      background:rgba(255,255,255,0.14);
-      border:1px solid rgba(255,255,255,0.22);
-    }
-
-    .settingsCard{
-      width:min(92vw, 520px);
-      border-radius:20px;
-      background:rgba(15,18,32,0.92);
-      border:1px solid rgba(255,255,255,0.18);
-      box-shadow:0 20px 70px rgba(0,0,0,0.55);
-      padding:16px 16px 14px;
-      display:grid;
-      gap:12px;
-      transform:scale(0.95);
-      opacity:0;
-      animation:popIn 220ms ease forwards;
-    }
-
-    .settingsHeader{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .settingsTitle{ font-weight:1000; font-size:18px; letter-spacing:0.2px; }
+    /* SETTINGS */
     .sliderRow{ display:grid; gap:6px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); }
     .sliderTop{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
     .sliderLabel{ font-weight:900; opacity:0.92; }
     .sliderVal{ font-weight:1000; color:var(--accent); }
     input[type="range"]{ width:100%; }
-    .settingsBtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .settingsBtns3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
-    .miniNote{ opacity:0.85; font-size:12px; line-height:1.25; }
-    .warn{ color:var(--accent); font-weight:900; }
+    .btnGrid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .btnGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* DEBUG */
+    #debug{
+      position:fixed;
+      left:10px; bottom:10px;
+      z-index:10000;
+      background:rgba(0,0,0,0.55);
+      border:1px solid rgba(255,255,255,0.18);
+      border-radius:12px;
+      padding:8px 10px;
+      font-size:12px;
+      line-height:1.2;
+      pointer-events:none;
+      max-width:min(92vw, 520px);
+      display:none;
+      white-space:pre-wrap;
+    }
+    body.debug #debug{ display:block; }
   </style>
 </head>
 
@@ -343,30 +260,46 @@
 
     <div class="controls">
       <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
-      <button id="toggleTeamBtn">Toggle Active Team</button>
-      <button id="settingsBtn">Settings</button>
-      <div class="log" id="log">Tap a square to reveal.</div>
+      <button id="toggleTeamBtn" type="button">Toggle Active Team</button>
+      <button id="settingsBtn" type="button">Settings</button>
+      <div class="log" id="log">Tap Start, then tap a square.</div>
+    </div>
+  </div>
+
+  <!-- START OVERLAY -->
+  <div id="startOverlay" class="overlay" aria-hidden="false">
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="bigTitle">Tap to Start</div>
+      <div class="smallNote">
+        Mobile browsers block audio and sometimes even “tap” events until the page starts from a user gesture.
+        This button unlocks everything.
+      </div>
+      <div class="row">
+        <span class="pill" id="startStatus">Not started</span>
+        <button id="startBtn" type="button" style="padding:12px 14px;border-radius:14px;">START</button>
+      </div>
+      <div class="smallNote" id="startHint"></div>
     </div>
   </div>
 
   <!-- POPUP -->
   <div id="overlay" class="overlay hidden" aria-hidden="true">
-    <div class="popup" role="dialog" aria-modal="true">
+    <div class="card" role="dialog" aria-modal="true">
       <div class="popupTop">
         <div id="popupTitle" class="popupTitle">+100</div>
         <div id="popupSub" class="popupSub">points</div>
       </div>
       <div id="popupAnim" class="popupAnim"></div>
-      <button id="closePopupBtn" class="popupBtn">OK</button>
+      <button id="closePopupBtn" class="popupBtn" type="button">OK</button>
     </div>
   </div>
 
   <!-- SETTINGS -->
   <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
-    <div class="settingsCard" role="dialog" aria-modal="true">
-      <div class="settingsHeader">
-        <div class="settingsTitle">Audio & Game Settings</div>
-        <button id="closeSettingsBtn" style="padding:8px 10px;border-radius:12px;">Close</button>
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="row">
+        <div class="bigTitle" style="font-size:18px;">Audio & Game Settings</div>
+        <button id="closeSettingsBtn" type="button" style="padding:8px 10px;border-radius:12px;">Close</button>
       </div>
 
       <div class="sliderRow">
@@ -385,23 +318,24 @@
         <input id="sfxVol" type="range" min="0" max="100" step="1" value="70" />
       </div>
 
-      <div class="settingsBtns3">
-        <button id="newBoardBtn">New Board</button>
-        <button id="resetScoresBtn">Reset Scores</button>
-        <button id="muteBtn">Mute: Off</button>
+      <div class="btnGrid3">
+        <button id="newBoardBtn" type="button">New Board</button>
+        <button id="resetScoresBtn" type="button">Reset Scores</button>
+        <button id="muteBtn" type="button">Mute: Off</button>
       </div>
 
-      <div class="settingsBtns">
-        <button id="testSfxBtn">Test SFX</button>
-        <button id="defaultsBtn">Defaults</button>
+      <div class="btnGrid2">
+        <button id="testSfxBtn" type="button">Test SFX</button>
+        <button id="defaultsBtn" type="button">Defaults</button>
       </div>
 
-      <div class="miniNote">
-        Mobile/iOS note: audio will not play until the first user gesture. This build unlocks audio on the first tap anywhere.
-        If you were opening via <span class="warn">file://</span>, use GitHub Pages (real https) for consistent mobile audio.
+      <div class="smallNote">
+        Tip: If mobile still fails, enable debug (3 quick taps on the log area).
       </div>
     </div>
   </div>
+
+  <div id="debug"></div>
 
   <!-- MUSIC -->
   <audio id="musicBgEl" src="bg-music.mp3" preload="auto" loop playsinline></audio>
@@ -427,7 +361,7 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
-  const LS_KEY = "truthSquareAudioSettings_v7_mobile";
+  const LS_KEY = "truthSquareAudioSettings_v8_mobile_start";
   const defaultSettings = { musicVol: 25, sfxVol: 70 };
   let settings = loadSettings();
 
@@ -438,6 +372,7 @@
 
   let popupTimer = null;
   let winnerShown = false;
+  let started = false;
 
   const audio = {
     ready:false,
@@ -467,6 +402,11 @@
     settingsBtn: document.getElementById("settingsBtn"),
     log: document.getElementById("log"),
 
+    startOverlay: document.getElementById("startOverlay"),
+    startBtn: document.getElementById("startBtn"),
+    startStatus: document.getElementById("startStatus"),
+    startHint: document.getElementById("startHint"),
+
     overlay: document.getElementById("overlay"),
     popupTitle: document.getElementById("popupTitle"),
     popupSub: document.getElementById("popupSub"),
@@ -486,12 +426,39 @@
     muteBtn: document.getElementById("muteBtn"),
 
     musicBgEl: document.getElementById("musicBgEl"),
-    musicWinEl: document.getElementById("musicWinEl")
+    musicWinEl: document.getElementById("musicWinEl"),
+
+    debug: document.getElementById("debug")
   };
 
-  function setLog(msg){ els.log.textContent = msg; }
+  // --- Debug / error capture (mobile lifesaver) ---
+  let debugOn = false;
+  let lastTapTimes = [];
+  function dbg(line){
+    if (!debugOn) return;
+    const now = new Date();
+    const stamp = now.toLocaleTimeString();
+    els.debug.textContent = `${stamp}  ${line}\n` + els.debug.textContent.slice(0, 1500);
+  }
+  window.addEventListener("error", (e) => { dbg("ERROR: " + (e.message || e)); });
+  window.addEventListener("unhandledrejection", (e) => { dbg("PROMISE: " + (e.reason?.message || e.reason || e)); });
+
+  function setLog(msg){ els.log.textContent = msg; dbg("LOG: " + msg); }
   function setMuteUI(){ els.muteBtn.textContent = `Mute: ${muted ? "On" : "Off"}`; }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+  // 3 quick taps on log toggles debug mode
+  els.log.addEventListener("touchend", () => {
+    const t = performance.now();
+    lastTapTimes.push(t);
+    lastTapTimes = lastTapTimes.filter(x => t - x < 650);
+    if (lastTapTimes.length >= 3){
+      debugOn = !debugOn;
+      document.body.classList.toggle("debug", debugOn);
+      dbg("DEBUG " + (debugOn ? "ON" : "OFF"));
+      lastTapTimes = [];
+    }
+  }, { passive:true });
 
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--){
@@ -547,10 +514,13 @@
     await Promise.all(entries.map(async ([key, url]) => {
       try{
         const res = await fetch(url, { cache:"no-store" });
-        if (!res.ok) throw new Error("fetch failed");
+        if (!res.ok) throw new Error("fetch failed " + url);
         const arr = await res.arrayBuffer();
         audio.buffers[key] = await audio.ctx.decodeAudioData(arr);
-      } catch (_) {}
+        dbg("SFX buffer loaded: " + key);
+      } catch (err) {
+        dbg("SFX buffer FAIL " + key + ": " + (err?.message || err));
+      }
     }));
   }
 
@@ -562,7 +532,7 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC){
         initHtmlFallbackPool();
-        setLog("AudioContext not available. SFX may be limited on this device.");
+        setLog("AudioContext not available on this device.");
         return;
       }
       const ctx = new AC();
@@ -587,13 +557,13 @@
       audio.winGain.gain.value = 0;
 
       initHtmlFallbackPool();
-
-      await resumeAudio();    // needed on iOS before decode feels reliable
-      await loadSfxBuffers(); // best path, but fallback still exists
+      await resumeAudio();
+      await loadSfxBuffers();
 
       audio.ready = true;
       applySettingsToAudio();
       startBgMusic();
+      dbg("Audio READY. ctx=" + ctx.state);
     })();
 
     return audio.initPromise;
@@ -604,9 +574,10 @@
     if (audio.wakingPromise) return audio.wakingPromise;
 
     audio.wakingPromise = (async () => {
-      try{ if (audio.ctx.state === "suspended") await audio.ctx.resume(); } catch (_) {}
+      try{
+        if (audio.ctx.state === "suspended") await audio.ctx.resume();
+      } catch (err){ dbg("ctx.resume failed: " + (err?.message||err)); }
 
-      // Tiny keep-alive to reduce iOS Safari randomly suspending audio after UI changes
       try{
         if (!audio.keepAliveOsc){
           const osc = audio.ctx.createOscillator();
@@ -640,8 +611,8 @@
   }
 
   function ensureMusicPlaying(){
-    els.musicBgEl.play().catch(() => {});
-    els.musicWinEl.play().catch(() => {});
+    els.musicBgEl.play().catch((e) => dbg("bg play blocked: " + (e?.message||e)));
+    els.musicWinEl.play().catch((e) => dbg("win play blocked: " + (e?.message||e)));
   }
 
   function startBgMusic(){
@@ -650,7 +621,6 @@
     rampGain(audio.bgGain, 1, musicFadeMs);
     rampGain(audio.winGain, 0, musicFadeMs);
   }
-
   function startWinnerMusic(){
     if (!audio.ready || muted) return;
     ensureMusicPlaying();
@@ -675,7 +645,7 @@
         g.connect(audio.sfxGain);
         src.start(0);
         return;
-      } catch (_) {}
+      } catch (err){ dbg("buffer play fail: " + (err?.message||err)); }
     }
 
     // Fallback
@@ -688,9 +658,10 @@
     try{ el.pause(); } catch (_) {}
     try{ el.currentTime = 0; } catch (_) { try{ el.load(); } catch (_) {} }
     el.volume = clamp01((settings.sfxVol / 100) * (relSfx[key] ?? 1));
-    el.play().catch(() => {});
+    el.play().catch((e) => dbg("html sfx blocked: " + (e?.message||e)));
   }
 
+  // --- Game ---
   function buildDeck(cellCount){
     const deck = [];
     for (let i = 0; i < numBankrupt; i++) deck.push("BANKRUPT");
@@ -721,11 +692,6 @@
       tile.className = "tile" + (cell.revealed ? " revealed" : "");
       tile.dataset.idx = idx;
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
-
-      // Mobile reliability: use pointerup (plus touchend fallback)
-      tile.addEventListener("pointerup", (e) => { e.preventDefault(); onPick(idx); }, { passive:false });
-      tile.addEventListener("touchend", (e) => { e.preventDefault(); onPick(idx); }, { passive:false });
-
       els.grid.appendChild(tile);
     });
   }
@@ -733,7 +699,6 @@
   function imgTag(src, alt){
     return `<img class="tileImg" src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.textContent='${alt}'" />`;
   }
-
   function formatReveal(label){
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
@@ -758,8 +723,8 @@
 
   function showPopup(kind, title, sub, color, imageKey, autoClose = true){
     if (popupTimer) clearTimeout(popupTimer);
-
     els.popupAnim.innerHTML = "";
+
     els.overlay.classList.remove("hidden");
     els.overlay.setAttribute("aria-hidden", "false");
 
@@ -827,6 +792,7 @@
   }
 
   async function onPick(idx){
+    if (!started) return;
     await ensureAudioAwake();
 
     const cell = board[idx];
@@ -892,7 +858,6 @@
   }
 
   function openSettings(){
-    ensureAudioAwake();
     applySettingsToUI();
     els.settingsOverlay.classList.remove("hidden");
     els.settingsOverlay.setAttribute("aria-hidden", "false");
@@ -902,21 +867,43 @@
     els.settingsOverlay.setAttribute("aria-hidden", "true");
   }
 
-  // UI hooks (use pointerup for mobile)
-  els.toggleTeamBtn.addEventListener("pointerup", (e) => { e.preventDefault(); ensureAudioAwake().then(toggleTeam); }, { passive:false });
-  els.settingsBtn.addEventListener("pointerup", (e) => { e.preventDefault(); openSettings(); }, { passive:false });
+  // --- Event delegation for tiles (more reliable on mobile than per-tile listeners) ---
+  function tileFromEventTarget(t){
+    if (!t) return null;
+    return t.closest ? t.closest(".tile") : null;
+  }
+  function handleGridTap(e){
+    // Prevent iOS “ghost click” and 300ms delay
+    if (e && e.cancelable) e.preventDefault();
+    const tile = tileFromEventTarget(e.target);
+    if (!tile) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    if (!Number.isFinite(idx)) return;
+    dbg("tile tap idx=" + idx);
+    onPick(idx);
+  }
+  els.grid.addEventListener("touchend", handleGridTap, { passive:false });
+  els.grid.addEventListener("pointerup", handleGridTap, { passive:false });
+  // as a last resort (some Android webviews)
+  els.grid.addEventListener("click", handleGridTap, { passive:false });
 
-  els.closeSettingsBtn.addEventListener("pointerup", (e) => { e.preventDefault(); closeSettings(); }, { passive:false });
-  els.settingsOverlay.addEventListener("pointerup", (e) => { if (e.target === els.settingsOverlay) closeSettings(); });
+  // Buttons (pointerup + click fallback)
+  function btn(el, fn){
+    el.addEventListener("pointerup", (e)=>{ if (e.cancelable) e.preventDefault(); fn(); }, { passive:false });
+    el.addEventListener("click", (e)=>{ if (e.cancelable) e.preventDefault(); fn(); }, { passive:false });
+  }
 
-  // Sliders
+  btn(els.toggleTeamBtn, ()=> started && toggleTeam());
+  btn(els.settingsBtn, ()=> started && openSettings());
+  btn(els.closeSettingsBtn, closeSettings);
+  els.settingsOverlay.addEventListener("click", (e)=>{ if (e.target === els.settingsOverlay) closeSettings(); });
+
   els.musicVol.addEventListener("input", () => {
     settings.musicVol = parseInt(els.musicVol.value, 10);
     els.musicVolVal.textContent = String(settings.musicVol);
     saveSettings();
     applySettingsToAudio();
   });
-
   els.sfxVol.addEventListener("input", () => {
     settings.sfxVol = parseInt(els.sfxVol.value, 10);
     els.sfxVolVal.textContent = String(settings.sfxVol);
@@ -924,67 +911,73 @@
     applySettingsToAudio();
   });
 
-  els.defaultsBtn.addEventListener("pointerup", async (e) => {
-    e.preventDefault();
-    await ensureAudioAwake();
+  btn(els.defaultsBtn, ()=> {
     settings = { ...defaultSettings };
     saveSettings();
     applySettingsToUI();
     applySettingsToAudio();
     setLog("Audio settings reset to defaults.");
-  }, { passive:false });
+  });
 
-  els.testSfxBtn.addEventListener("pointerup", async (e) => {
-    e.preventDefault();
-    await playSfx("coin");
-    setLog("Test SFX played.");
-  }, { passive:false });
+  btn(els.testSfxBtn, ()=> playSfx("coin"));
 
-  els.newBoardBtn.addEventListener("pointerup", async (e) => {
-    e.preventDefault();
-    await ensureAudioAwake();
-    newBoard();
-    closeSettings();
-  }, { passive:false });
+  btn(els.newBoardBtn, ()=> { newBoard(); closeSettings(); });
+  btn(els.resetScoresBtn, resetScores);
 
-  els.resetScoresBtn.addEventListener("pointerup", async (e) => {
-    e.preventDefault();
-    await ensureAudioAwake();
-    resetScores();
-  }, { passive:false });
-
-  els.muteBtn.addEventListener("pointerup", async (e) => {
-    e.preventDefault();
-    await ensureAudioAwake();
+  btn(els.muteBtn, ()=> {
     muted = !muted;
     setMuteUI();
     applySettingsToAudio();
     setLog(muted ? "Sound muted." : "Sound on.");
-  }, { passive:false });
+  });
 
-  // Popup close
-  els.closePopupBtn.addEventListener("pointerup", (e) => { e.preventDefault(); hidePopup(); }, { passive:false });
-  els.overlay.addEventListener("pointerup", (e) => { if (e.target === els.overlay) hidePopup(); });
+  btn(els.closePopupBtn, hidePopup);
+  els.overlay.addEventListener("click", (e)=>{ if (e.target === els.overlay) hidePopup(); });
 
-  // Init UI + board
+  // START button
+  btn(els.startBtn, async ()=> {
+    if (started) return;
+    els.startStatus.textContent = "Starting…";
+    els.startHint.textContent = "";
+    try{
+      await ensureAudioAwake();
+      started = true;
+      applySettingsToUI();
+      setMuteUI();
+      updateScores();
+      newBoard();
+      els.startStatus.textContent = "Started ✅";
+      els.startOverlay.classList.add("hidden");
+      els.startOverlay.setAttribute("aria-hidden", "true");
+      setLog("Ready! Tap a square.");
+      // light test
+      playSfx("click");
+    } catch (err){
+      els.startStatus.textContent = "Start failed";
+      els.startHint.textContent = String(err?.message || err || "Unknown error");
+      dbg("START FAIL: " + (err?.message||err));
+    }
+  });
+
+  // Initial render (but not interactive until started)
   applySettingsToUI();
   setMuteUI();
   updateScores();
-  newBoard();
+  renderGridPlaceholder();
 
-  // iOS unlock: first tap anywhere unlocks audio + starts music
-  const unlock = async () => {
-    await ensureAudioAwake();
-    setLog("Audio unlocked ✅");
-    window.removeEventListener("touchstart", unlock);
-    window.removeEventListener("pointerdown", unlock);
-  };
-  window.addEventListener("touchstart", unlock, { passive:true, once:true });
-  window.addEventListener("pointerdown", unlock, { passive:true, once:true });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) ensureAudioAwake();
-  });
+  function renderGridPlaceholder(){
+    const cellCount = rows * cols;
+    els.grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    els.grid.innerHTML = "";
+    for (let i = 0; i < cellCount; i++){
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.dataset.idx = i;
+      tile.textContent = String(i + 1);
+      els.grid.appendChild(tile);
+    }
+  }
 </script>
 </body>
 </html>
