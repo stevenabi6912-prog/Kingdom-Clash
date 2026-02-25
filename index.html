@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Truth Square (Rebuild)</title>
+  <title>Truth Square</title>
   <style>
     :root{
       --bg:#0b1020;
@@ -20,7 +20,7 @@
 
     html, body{
       height:100%;
-      overscroll-behavior-y: none;
+      overscroll-behavior-y:none;
       -webkit-text-size-adjust:100%;
     }
 
@@ -30,13 +30,13 @@
       background:var(--bg);
       color:var(--text);
 
-      /* Allow normal one-finger scrolling on mobile */
-      min-height: 100svh;
+      /* Normal one-finger scrolling on mobile */
+      min-height:100svh;
       display:grid;
-      grid-template-rows: 1fr auto;
+      grid-template-rows:1fr auto;
       overflow-x:hidden;
       overflow-y:auto;
-      -webkit-overflow-scrolling: touch;
+      -webkit-overflow-scrolling:touch;
       touch-action: pan-y;
     }
 
@@ -45,9 +45,9 @@
       display:grid;
       place-items:center;
       padding:24px;
-      padding-top: max(24px, env(safe-area-inset-top));
-      padding-left: max(24px, env(safe-area-inset-left));
-      padding-right: max(24px, env(safe-area-inset-right));
+      padding-top:max(24px, env(safe-area-inset-top));
+      padding-left:max(24px, env(safe-area-inset-left));
+      padding-right:max(24px, env(safe-area-inset-right));
     }
 
     .bg{
@@ -79,16 +79,15 @@
       display:grid;
       place-items:center;
     }
+
     .grid{
       width:100%;
       height:100%;
       display:grid;
       gap:10px;
       padding:10px;
-
-      /* helps mobile browsers treat taps as “direct” interactions */
       touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .tile{
@@ -107,12 +106,17 @@
       perspective:900px;
       position:relative;
       overflow:hidden;
-
       touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color:transparent;
     }
+    .tile:hover{ background:var(--tile-hover); transform:translateY(-2px); }
     .tile:active{ transform:scale(0.99); }
-    .tile.revealed{ background:var(--tile-revealed); border-style:solid; cursor:default; transform:none; }
+    .tile.revealed{
+      background:var(--tile-revealed);
+      border-style:solid;
+      cursor:default;
+      transform:none;
+    }
     .tile.flipping{ animation:flip 420ms ease both; }
     @keyframes flip{
       0%{ transform:rotateY(0deg); }
@@ -120,7 +124,12 @@
       55%{ transform:rotateY(90deg); }
       100%{ transform:rotateY(0deg); }
     }
-    .tileImg{ width:86%; height:86%; object-fit:contain; filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35)); }
+    .tileImg{
+      width:86%;
+      height:86%;
+      object-fit:contain;
+      filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35));
+    }
 
     .panel{
       background:var(--panel);
@@ -129,11 +138,11 @@
       grid-template-columns:1.4fr 1.4fr 1.2fr;
       gap:12px;
       align-items:center;
-
       padding-bottom:max(14px, env(safe-area-inset-bottom));
       padding-left:max(16px, env(safe-area-inset-left));
       padding-right:max(16px, env(safe-area-inset-right));
     }
+
     .team{
       display:grid;
       grid-template-columns:1fr auto;
@@ -143,8 +152,18 @@
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
     }
-    .team h2{ margin:0; font-size:16px; opacity:0.9; font-weight:800; }
-    .score{ font-size:28px; font-weight:1000; color:var(--accent); }
+    .team h2{
+      margin:0;
+      font-size:16px;
+      opacity:0.9;
+      font-weight:800;
+    }
+    .score{
+      font-size:28px;
+      font-weight:1000;
+      color:var(--accent);
+    }
+
     .controls{ display:grid; gap:8px; justify-items:end; }
 
     button{
@@ -159,6 +178,7 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+    button:hover{ background:rgba(255,255,255,0.18); }
     button:active{ transform:scale(0.99); }
 
     .activeBadge{
@@ -171,7 +191,13 @@
       color:var(--accent);
       justify-self:end;
     }
-    .log{ font-size:13px; opacity:0.9; text-align:right; line-height:1.25; }
+
+    .log{
+      font-size:13px;
+      opacity:0.9;
+      text-align:right;
+      line-height:1.25;
+    }
 
     @media (max-width:800px){
       .panel{ grid-template-columns:1fr; }
@@ -209,34 +235,34 @@
     }
     @keyframes popIn{ to { transform:scale(1); opacity:1; } }
 
-    /* Start overlay */
+    /* Start overlay (kid friendly) */
     .startHero{
       display:grid;
       gap:8px;
       text-align:center;
-      padding:14px 12px 8px;
+      padding:16px 14px 12px;
       border-radius:18px;
-      background:linear-gradient(180deg, rgba(255,210,74,0.16), rgba(255,210,74,0.06));
-      border:1px solid rgba(255,210,74,0.25);
+      background:linear-gradient(180deg, rgba(255,210,74,0.18), rgba(255,210,74,0.06));
+      border:1px solid rgba(255,210,74,0.28);
     }
     .startTitle{
       font-weight:1000;
-      font-size:clamp(22px, 4.2vw, 34px);
+      font-size:clamp(26px, 5vw, 42px);
       letter-spacing:0.3px;
     }
     .startSub{
-      opacity:0.9;
-      font-weight:800;
+      opacity:0.92;
+      font-weight:900;
       line-height:1.25;
       font-size:14px;
     }
     .startBtn{
-      padding:14px 16px;
-      border-radius:16px;
+      padding:16px 16px;
+      border-radius:18px;
       font-weight:1000;
-      background:rgba(255,210,74,0.22);
-      border:1px solid rgba(255,210,74,0.40);
-      color:var(--text);
+      font-size:18px;
+      background:rgba(255,210,74,0.25);
+      border:1px solid rgba(255,210,74,0.44);
     }
     .startRow{
       display:flex;
@@ -302,25 +328,6 @@
     input[type="range"]{ width:100%; }
     .btnGrid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
     .btnGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
-    /* DEBUG (kept, hidden by default) */
-    #debug{
-      position:fixed;
-      left:10px;
-      bottom:10px;
-      z-index:10000;
-      background:rgba(0,0,0,0.55);
-      border:1px solid rgba(255,255,255,0.18);
-      border-radius:12px;
-      padding:8px 10px;
-      font-size:12px;
-      line-height:1.2;
-      pointer-events:none;
-      max-width:min(92vw, 520px);
-      display:none;
-      white-space:pre-wrap;
-    }
-    body.debug #debug{ display:block; }
   </style>
 </head>
 
@@ -353,7 +360,7 @@
       <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
       <button id="toggleTeamBtn" type="button">Toggle Active Team</button>
       <button id="settingsBtn" type="button">Settings</button>
-      <div class="log" id="log">Tap Start, then tap a square.</div>
+      <div class="log" id="log">Tap Start Game, then tap a square.</div>
     </div>
   </div>
 
@@ -361,19 +368,16 @@
   <div id="startOverlay" class="overlay" aria-hidden="false">
     <div class="card" role="dialog" aria-modal="true">
       <div class="startHero">
-        <div class="startTitle">Start the Round</div>
-        <div class="startSub">Mobile browsers require a tap to enable sound + gameplay.</div>
+        <div class="startTitle">Ready to Play?</div>
+        <div class="startSub">Press the button to start!</div>
       </div>
 
       <div class="startRow">
         <span class="pill" id="startStatus">Not started</span>
-        <button id="startBtn" class="startBtn" type="button">BEGIN</button>
+        <button id="startBtn" class="startBtn" type="button">START GAME</button>
       </div>
 
       <div class="smallNote" id="startHint"></div>
-      <div class="smallNote" style="opacity:.78;">
-        Tip: Tap the log 3 times quickly to toggle debug.
-      </div>
     </div>
   </div>
 
@@ -422,12 +426,8 @@
         <button id="testSfxBtn" type="button">Test SFX</button>
         <button id="defaultsBtn" type="button">Defaults</button>
       </div>
-
-      <div class="smallNote">Scrolling should now be one-finger everywhere.</div>
     </div>
   </div>
-
-  <div id="debug"></div>
 
   <!-- MUSIC -->
   <audio id="musicBgEl" src="bg-music.mp3" preload="auto" loop playsinline></audio>
@@ -453,7 +453,7 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
-  const LS_KEY = "truthSquareAudioSettings_v9_mobile_better";
+  const LS_KEY = "truthSquareAudioSettings_v10_click_buttons";
   const defaultSettings = { musicVol: 25, sfxVol: 70 };
   let settings = loadSettings();
 
@@ -518,36 +518,11 @@
 
     musicBgEl: document.getElementById("musicBgEl"),
     musicWinEl: document.getElementById("musicWinEl"),
-
-    debug: document.getElementById("debug")
   };
-
-  // Debug (3 taps on log)
-  let debugOn = false;
-  let lastTapTimes = [];
-  function dbg(line){
-    if (!debugOn) return;
-    const stamp = new Date().toLocaleTimeString();
-    els.debug.textContent = `${stamp}  ${line}\n` + els.debug.textContent.slice(0, 1500);
-  }
-  window.addEventListener("error", (e) => { dbg("ERROR: " + (e.message || e)); });
-  window.addEventListener("unhandledrejection", (e) => { dbg("PROMISE: " + (e.reason?.message || e.reason || e)); });
 
   function setLog(msg){ els.log.textContent = msg; }
   function setMuteUI(){ els.muteBtn.textContent = `Mute: ${muted ? "On" : "Off"}`; }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-
-  els.log.addEventListener("touchend", () => {
-    const t = performance.now();
-    lastTapTimes.push(t);
-    lastTapTimes = lastTapTimes.filter(x => t - x < 650);
-    if (lastTapTimes.length >= 3){
-      debugOn = !debugOn;
-      document.body.classList.toggle("debug", debugOn);
-      dbg("DEBUG " + (debugOn ? "ON" : "OFF"));
-      lastTapTimes = [];
-    }
-  }, { passive:true });
 
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--){
@@ -618,7 +593,7 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC){
         initHtmlFallbackPool();
-        setLog("AudioContext not available on this device.");
+        setLog("Audio not supported on this device.");
         return;
       }
       const ctx = new AC();
@@ -663,7 +638,7 @@
         if (audio.ctx.state === "suspended") await audio.ctx.resume();
       } catch (_) {}
 
-      // Tiny keep-alive to reduce iOS Safari randomly suspending audio after UI changes
+      // Keep-alive to reduce iOS suspends
       try{
         if (!audio.keepAliveOsc){
           const osc = audio.ctx.createOscillator();
@@ -965,7 +940,7 @@
     els.settingsOverlay.setAttribute("aria-hidden", "true");
   }
 
-  // --- Tile taps: event delegation; DO NOT preventDefault so scrolling stays normal ---
+  // --- Tile taps: event delegation (kept multi-event for mobile reliability) ---
   function tileFromTarget(t){ return t && t.closest ? t.closest(".tile") : null; }
   function handleGridTap(e){
     const tile = tileFromTarget(e.target);
@@ -978,11 +953,9 @@
   els.grid.addEventListener("touchend", handleGridTap, { passive:true });
   els.grid.addEventListener("click", handleGridTap, { passive:true });
 
-  // Buttons: click + touchend for maximum compatibility (no long-press)
+  // ✅ Buttons: CLICK ONLY (fixes “click-and-hold” on desktop)
   function onTap(el, fn){
-    el.addEventListener("click", fn, { passive:true });
-    el.addEventListener("touchend", fn, { passive:true });
-    el.addEventListener("pointerup", fn, { passive:true });
+    el.addEventListener("click", fn);
   }
 
   onTap(els.toggleTeamBtn, () => { if (started) toggleTeam(); });
@@ -1023,10 +996,8 @@
     setLog(muted ? "Sound muted." : "Sound on.");
   });
 
-  // Popup dismiss: tap anywhere on overlay
-  els.overlay.addEventListener("click", hidePopup, { passive:true });
-  els.overlay.addEventListener("touchend", hidePopup, { passive:true });
-  els.overlay.addEventListener("pointerup", hidePopup, { passive:true });
+  // Popup dismiss: click anywhere on the overlay
+  els.overlay.addEventListener("click", hidePopup);
 
   // START button
   onTap(els.startBtn, async () => {
