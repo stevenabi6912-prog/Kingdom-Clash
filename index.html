@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Truth Square</title>
+  <title>Kingdom Clash</title>
   <style>
     :root{
       --bg:#0b1020;
@@ -154,7 +154,7 @@
     }
     .team h2{
       margin:0;
-      font-size:18px;
+      font-size: 28px;
       opacity:0.92;
       font-weight:900;
     }
@@ -380,7 +380,7 @@
   <div id="startOverlay" class="overlay" aria-hidden="false">
     <div class="card" role="dialog" aria-modal="true">
       <div class="startHero">
-        <div class="startTitle">Ready to Play?</div>
+        <div class="startTitle">Kingdom Clash</div>
         <div class="startSub">Press the button to start!</div>
       </div>
 
@@ -408,18 +408,19 @@
   <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true">
       <div class="row">
-        <div class="bigTitle">Audio & Game Settings</div>
+        <div class="bigTitle">Kingdom Clash Settings</div>
         <button id="closeSettingsBtn" type="button" style="padding:8px 10px;border-radius:12px;">Close</button>
       </div>
 
       <div class="sliderRow">
         <div class="sliderTop">
           <div class="sliderLabel">Board Size</div>
-          <div class="sliderVal" id="boardSizeVal">20 tiles</div>
+          <div class="sliderVal" id="boardSizeVal">20 tiles (4×5)</div>
         </div>
         <select id="boardSizeSelect">
           <option value="20">20 tiles (4×5)</option>
           <option value="16">16 tiles (4×4)</option>
+          <option value="12">12 tiles (3×4)</option>
         </select>
         <div class="smallNote" style="opacity:.78;">Changing this starts a new board.</div>
       </div>
@@ -460,13 +461,12 @@
 <script>
   // ======== CONFIG ========
   const BOARD_PRESETS = {
-    "20": { rows: 4, cols: 5, label: "20 tiles" },
-    "16": { rows: 4, cols: 4, label: "16 tiles" },
+    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 2, double: 2 },
+    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 2, double: 2 },
+    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 1, double: 1 },
   };
 
   const moneyValues = [100, 200, 500, 1000];
-  const numBankrupt = 2;
-  const numDouble = 2;
 
   const relSfx = { click: 0.22, coin: 0.90, bankrupt: 1.00, double: 0.95 };
   const sfxFiles = { click: "click.mp3", coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
@@ -484,7 +484,7 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
-  const LS_KEY = "truthSquareSettings_v11_undo_boardsize_font";
+  const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
   const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
   let settings = loadSettings();
 
@@ -583,7 +583,7 @@
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return { ...defaultSettings };
       const obj = JSON.parse(raw);
-      const bs = (obj.boardSize === "16" || obj.boardSize === "20") ? obj.boardSize : defaultSettings.boardSize;
+      const bs = (obj.boardSize === "12" || obj.boardSize === "16" || obj.boardSize === "20") ? obj.boardSize : defaultSettings.boardSize;
       return {
         musicVol: Number.isFinite(+obj.musicVol) ? +obj.musicVol : defaultSettings.musicVol,
         sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol,
@@ -773,8 +773,12 @@
 
   function buildDeck(cellCount){
     const deck = [];
-    for (let i = 0; i < numBankrupt; i++) deck.push("BANKRUPT");
-    for (let i = 0; i < numDouble; i++) deck.push("x2");
+    const preset = BOARD_PRESETS[String(settings.boardSize)] || BOARD_PRESETS["20"];
+    const bCount = Number.isFinite(preset.bankrupt) ? preset.bankrupt : 2;
+    const dCount = Number.isFinite(preset.double) ? preset.double : 2;
+
+    for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
+    for (let i = 0; i < dCount; i++) deck.push("x2");
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
@@ -1102,7 +1106,7 @@
   });
 
   els.boardSizeSelect.addEventListener("change", () => {
-    const v = els.boardSizeSelect.value === "16" ? "16" : "20";
+    const v = (els.boardSizeSelect.value === "12" || els.boardSizeSelect.value === "16") ? els.boardSizeSelect.value : "20";
     settings.boardSize = v;
     saveSettings();
 
