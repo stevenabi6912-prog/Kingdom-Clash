@@ -30,7 +30,6 @@
       background:var(--bg);
       color:var(--text);
 
-      /* Normal one-finger scrolling on mobile */
       min-height:100svh;
       display:grid;
       grid-template-rows:1fr auto;
@@ -96,8 +95,9 @@
       border:2px dashed rgba(255,255,255,0.20);
       display:grid;
       place-items:center;
-      font-weight:900;
-      font-size:clamp(18px, 2.6vw, 36px);
+      font-weight:1000;
+      /* larger font */
+      font-size:clamp(22px, 3.2vw, 44px);
       user-select:none;
       cursor:pointer;
       transition:transform 0.08s ease, background 0.15s ease;
@@ -154,12 +154,12 @@
     }
     .team h2{
       margin:0;
-      font-size:16px;
-      opacity:0.9;
-      font-weight:800;
+      font-size:18px;
+      opacity:0.92;
+      font-weight:900;
     }
     .score{
-      font-size:28px;
+      font-size:34px;
       font-weight:1000;
       color:var(--accent);
     }
@@ -180,6 +180,7 @@
     }
     button:hover{ background:rgba(255,255,255,0.18); }
     button:active{ transform:scale(0.99); }
+    button:disabled{ opacity:0.55; cursor:not-allowed; }
 
     .activeBadge{
       display:inline-block;
@@ -193,8 +194,8 @@
     }
 
     .log{
-      font-size:13px;
-      opacity:0.9;
+      font-size:14px;
+      opacity:0.92;
       text-align:right;
       line-height:1.25;
     }
@@ -235,7 +236,7 @@
     }
     @keyframes popIn{ to { transform:scale(1); opacity:1; } }
 
-    /* Start overlay (kid friendly) */
+    /* Start overlay */
     .startHero{
       display:grid;
       gap:8px;
@@ -328,6 +329,16 @@
     input[type="range"]{ width:100%; }
     .btnGrid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
     .btnGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      background:rgba(255,255,255,0.10);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.18);
+      font-weight:900;
+    }
+    option{ color:#000; }
   </style>
 </head>
 
@@ -359,6 +370,7 @@
     <div class="controls">
       <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
       <button id="toggleTeamBtn" type="button">Toggle Active Team</button>
+      <button id="undoBtn" type="button" disabled>Undo</button>
       <button id="settingsBtn" type="button">Settings</button>
       <div class="log" id="log">Tap Start Game, then tap a square.</div>
     </div>
@@ -402,6 +414,18 @@
 
       <div class="sliderRow">
         <div class="sliderTop">
+          <div class="sliderLabel">Board Size</div>
+          <div class="sliderVal" id="boardSizeVal">20 tiles</div>
+        </div>
+        <select id="boardSizeSelect">
+          <option value="20">20 tiles (4×5)</option>
+          <option value="16">16 tiles (4×4)</option>
+        </select>
+        <div class="smallNote" style="opacity:.78;">Changing this starts a new board.</div>
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
           <div class="sliderLabel">Background Music</div>
           <div class="sliderVal"><span id="musicVolVal">25</span>%</div>
         </div>
@@ -435,7 +459,11 @@
 
 <script>
   // ======== CONFIG ========
-  const rows = 4, cols = 5;
+  const BOARD_PRESETS = {
+    "20": { rows: 4, cols: 5, label: "20 tiles" },
+    "16": { rows: 4, cols: 4, label: "16 tiles" },
+  };
+
   const moneyValues = [100, 200, 500, 1000];
   const numBankrupt = 2;
   const numDouble = 2;
@@ -446,6 +474,9 @@
   const popupAutoCloseMs = 3000;
   const tileFlipMs = 420;
   const musicFadeMs = 700;
+
+  // Anti-double-trigger (fixes “everything started doubling”)
+  const tapDedupMs = 450;
   // ========================
 
   const outcomeImages = {
@@ -453,9 +484,12 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
-  const LS_KEY = "truthSquareAudioSettings_v10_click_buttons";
-  const defaultSettings = { musicVol: 25, sfxVol: 70 };
+  const LS_KEY = "truthSquareSettings_v11_undo_boardsize_font";
+  const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
   let settings = loadSettings();
+
+  let boardRows = BOARD_PRESETS[settings.boardSize]?.rows ?? 4;
+  let boardCols = BOARD_PRESETS[settings.boardSize]?.cols ?? 5;
 
   let activeTeam = "A";
   let scores = { A: 0, B: 0 };
@@ -465,6 +499,14 @@
   let popupTimer = null;
   let winnerShown = false;
   let started = false;
+
+  // Undo stack
+  const undoStack = [];
+
+  // Interaction locks / dedup
+  let pickLock = false;
+  let lastTapKey = "";
+  let lastTapAt = 0;
 
   const audio = {
     ready:false,
@@ -491,6 +533,7 @@
     teamBScore: document.getElementById("teamBScore"),
     activeTeamBadge: document.getElementById("activeTeamBadge"),
     toggleTeamBtn: document.getElementById("toggleTeamBtn"),
+    undoBtn: document.getElementById("undoBtn"),
     settingsBtn: document.getElementById("settingsBtn"),
     log: document.getElementById("log"),
 
@@ -506,6 +549,8 @@
 
     settingsOverlay: document.getElementById("settingsOverlay"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+    boardSizeSelect: document.getElementById("boardSizeSelect"),
+    boardSizeVal: document.getElementById("boardSizeVal"),
     musicVol: document.getElementById("musicVol"),
     sfxVol: document.getElementById("sfxVol"),
     musicVolVal: document.getElementById("musicVolVal"),
@@ -523,6 +568,7 @@
   function setLog(msg){ els.log.textContent = msg; }
   function setMuteUI(){ els.muteBtn.textContent = `Mute: ${muted ? "On" : "Off"}`; }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function setUndoUI(){ els.undoBtn.disabled = undoStack.length === 0; }
 
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--){
@@ -537,9 +583,11 @@
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return { ...defaultSettings };
       const obj = JSON.parse(raw);
+      const bs = (obj.boardSize === "16" || obj.boardSize === "20") ? obj.boardSize : defaultSettings.boardSize;
       return {
         musicVol: Number.isFinite(+obj.musicVol) ? +obj.musicVol : defaultSettings.musicVol,
-        sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol
+        sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol,
+        boardSize: bs
       };
     } catch (_) { return { ...defaultSettings }; }
   }
@@ -550,6 +598,9 @@
     els.sfxVol.value = String(settings.sfxVol);
     els.musicVolVal.textContent = String(settings.musicVol);
     els.sfxVolVal.textContent = String(settings.sfxVol);
+
+    els.boardSizeSelect.value = settings.boardSize;
+    els.boardSizeVal.textContent = BOARD_PRESETS[settings.boardSize]?.label ?? "20 tiles";
   }
 
   function applySettingsToAudio(){
@@ -720,7 +771,6 @@
     el.play().catch(() => {});
   }
 
-  // --- Game ---
   function buildDeck(cellCount){
     const deck = [];
     for (let i = 0; i < numBankrupt; i++) deck.push("BANKRUPT");
@@ -731,19 +781,25 @@
     return shuffle(deck);
   }
 
+  function clearUndo(){
+    undoStack.length = 0;
+    setUndoUI();
+  }
+
   function newBoard(){
-    const cellCount = rows * cols;
+    const cellCount = boardRows * boardCols;
     board = buildDeck(cellCount).map(label => ({ label, revealed:false }));
     winnerShown = false;
     hidePopup();
     renderGrid();
+    clearUndo();
     setLog("New board ready. Ask a question 😄");
     if (audio.ready) startBgMusic();
   }
 
   function renderGrid(){
-    els.grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    els.grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
     els.grid.innerHTML = "";
 
     board.forEach((cell, idx) => {
@@ -756,9 +812,9 @@
   }
 
   function renderGridPlaceholder(){
-    const cellCount = rows * cols;
-    els.grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    els.grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    const cellCount = boardRows * boardCols;
+    els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
     els.grid.innerHTML = "";
     for (let i = 0; i < cellCount; i++){
       const tile = document.createElement("div");
@@ -866,22 +922,42 @@
 
   async function onPick(idx){
     if (!started) return;
-    await ensureAudioAwake();
+
+    const now = performance.now();
+    const tapKey = String(idx);
+    if (tapKey == lastTapKey && (now - lastTapAt) < tapDedupMs) return;
+    lastTapKey = tapKey;
+    lastTapAt = now;
+
+    if (pickLock) return;
 
     const cell = board[idx];
     if (!cell || cell.revealed) return;
 
-    const tileEl = els.grid.querySelector(`[data-idx="${idx}"]`);
-    if (!tileEl) return;
+    pickLock = true;
+    await ensureAudioAwake();
 
-    playSfx("click");
-    tileEl.classList.add("flipping");
+    undoStack.push({
+      idx,
+      label: cell.label,
+      team: activeTeam,
+      prevScores: { A: scores.A, B: scores.B },
+    });
+    setUndoUI();
+
+    cell.revealed = true;
+
+    const tileEl = els.grid.querySelector(`[data-idx="${idx}"]`);
+    if (tileEl){
+      playSfx("click");
+      tileEl.classList.add("flipping");
+    }
 
     setTimeout(async () => {
-      cell.revealed = true;
       await applyOutcome(cell.label);
       renderGrid();
       checkForWinner();
+      pickLock = false;
     }, Math.floor(tileFlipMs * 0.52));
   }
 
@@ -927,7 +1003,33 @@
   function resetScores(){
     scores = { A: 0, B: 0 };
     updateScores();
+    clearUndo();
     setLog("Scores reset.");
+  }
+
+  function undoLast(){
+    if (pickLock) return;
+    const last = undoStack.pop();
+    if (!last) return;
+
+    scores.A = last.prevScores.A;
+    scores.B = last.prevScores.B;
+
+    const cell = board[last.idx];
+    if (cell) cell.revealed = false;
+
+    winnerShown = false;
+    hidePopup();
+    if (audio.ready) startBgMusic();
+
+    updateScores();
+    renderGrid();
+    setUndoUI();
+
+    const tName = last.team === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+    setLog(`Undid last pick for ${tName}.`);
   }
 
   function openSettings(){
@@ -940,25 +1042,47 @@
     els.settingsOverlay.setAttribute("aria-hidden", "true");
   }
 
-  // --- Tile taps: event delegation (kept multi-event for mobile reliability) ---
+  // --- Tile taps: hardened against “double fire” (touchend + synthetic click) ---
   function tileFromTarget(t){ return t && t.closest ? t.closest(".tile") : null; }
-  function handleGridTap(e){
-    const tile = tileFromTarget(e.target);
+
+  // If a touch/pointer event happened, Safari may also dispatch a synthetic click.
+  // We suppress that click for a short window to prevent double-scoring.
+  let suppressClickUntil = 0;
+
+  function handleGridTapCore(target, eventType){
+    const tile = tileFromTarget(target);
     if (!tile) return;
     const idx = parseInt(tile.dataset.idx, 10);
     if (!Number.isFinite(idx)) return;
-    onPick(idx);
+    onPick(idx, eventType);
   }
-  els.grid.addEventListener("pointerup", handleGridTap, { passive:true });
-  els.grid.addEventListener("touchend", handleGridTap, { passive:true });
-  els.grid.addEventListener("click", handleGridTap, { passive:true });
 
-  // ✅ Buttons: CLICK ONLY (fixes “click-and-hold” on desktop)
-  function onTap(el, fn){
-    el.addEventListener("click", fn);
+  function onGridPointerUp(e){
+    suppressClickUntil = performance.now() + 800;
+    if (e.cancelable) e.preventDefault();
+    handleGridTapCore(e.target, "pointerup");
   }
+
+  function onGridTouchEnd(e){
+    suppressClickUntil = performance.now() + 800;
+    if (e.cancelable) e.preventDefault();
+    handleGridTapCore(e.target, "touchend");
+  }
+
+  function onGridClick(e){
+    if (performance.now() < suppressClickUntil) return;
+    handleGridTapCore(e.target, "click");
+  }
+
+  // Use non-passive so we can preventDefault and stop the synthetic click on iOS/Safari.
+  els.grid.addEventListener("pointerup", onGridPointerUp, { passive:false });
+  els.grid.addEventListener("touchend", onGridTouchEnd, { passive:false });
+  els.grid.addEventListener("click", onGridClick, { passive:true });
+
+  function onTap(el, fn){ el.addEventListener("click", fn); }
 
   onTap(els.toggleTeamBtn, () => { if (started) toggleTeam(); });
+  onTap(els.undoBtn, () => { if (started) undoLast(); });
   onTap(els.settingsBtn, () => { if (started) openSettings(); });
   onTap(els.closeSettingsBtn, closeSettings);
 
@@ -977,12 +1101,30 @@
     applySettingsToAudio();
   });
 
+  els.boardSizeSelect.addEventListener("change", () => {
+    const v = els.boardSizeSelect.value === "16" ? "16" : "20";
+    settings.boardSize = v;
+    saveSettings();
+
+    boardRows = BOARD_PRESETS[v].rows;
+    boardCols = BOARD_PRESETS[v].cols;
+    els.boardSizeVal.textContent = BOARD_PRESETS[v].label;
+
+    newBoard();
+    setLog(`Board size set to ${BOARD_PRESETS[v].label}.`);
+  });
+
   onTap(els.defaultsBtn, () => {
     settings = { ...defaultSettings };
     saveSettings();
+
+    boardRows = BOARD_PRESETS[settings.boardSize].rows;
+    boardCols = BOARD_PRESETS[settings.boardSize].cols;
+
     applySettingsToUI();
     applySettingsToAudio();
-    setLog("Audio settings reset to defaults.");
+    newBoard();
+    setLog("Settings reset to defaults.");
   });
 
   onTap(els.testSfxBtn, () => playSfx("coin"));
@@ -996,10 +1138,8 @@
     setLog(muted ? "Sound muted." : "Sound on.");
   });
 
-  // Popup dismiss: click anywhere on the overlay
   els.overlay.addEventListener("click", hidePopup);
 
-  // START button
   onTap(els.startBtn, async () => {
     if (started) return;
     els.startStatus.textContent = "Starting…";
@@ -1026,6 +1166,7 @@
   applySettingsToUI();
   setMuteUI();
   updateScores();
+  setUndoUI();
   renderGridPlaceholder();
 </script>
 </body>
