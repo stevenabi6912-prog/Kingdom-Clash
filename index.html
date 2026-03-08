@@ -369,9 +369,9 @@
 
     <div class="controls">
       <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
-      <button id="toggleTeamBtn" type="button">Toggle Active Team</button>
+      <button id="toggleTeamBtn" type="button" disabled>Toggle Active Team</button>
       <button id="undoBtn" type="button" disabled>Undo</button>
-      <button id="settingsBtn" type="button">Settings</button>
+      <button id="settingsBtn" type="button" disabled>Settings</button>
       <div class="log" id="log">Tap Start Game, then tap a square.</div>
     </div>
   </div>
@@ -468,8 +468,8 @@
 
   const moneyValues = [100, 200, 500, 1000];
 
-  const relSfx = { click: 0.22, coin: 0.90, bankrupt: 1.00, double: 0.95 };
-  const sfxFiles = { click: "click.mp3", coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
+  const relSfx = { coin: 0.90, bankrupt: 1.00, double: 0.95 };
+  const sfxFiles = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
 
   const popupAutoCloseMs = 3000;
   const tileFlipMs = 420;
@@ -521,8 +521,8 @@
     winSrc:null,
     buffers:{},
     keepAliveOsc:null,
-    htmlPool:{ click:[], coin:[], bankrupt:[], double:[] },
-    htmlIdx:{ click:0, coin:0, bankrupt:0, double:0 }
+    htmlPool:{ coin:[], bankrupt:[], double:[] },
+    htmlIdx:{ coin:0, bankrupt:0, double:0 }
   };
 
   const els = {
@@ -939,7 +939,7 @@
     if (!cell || cell.revealed) return;
 
     pickLock = true;
-    await ensureAudioAwake();
+    try { await ensureAudioAwake(); } catch (_) { pickLock = false; return; }
 
     undoStack.push({
       idx,
@@ -953,15 +953,18 @@
 
     const tileEl = els.grid.querySelector(`[data-idx="${idx}"]`);
     if (tileEl){
-      playSfx("click");
       tileEl.classList.add("flipping");
     }
 
     setTimeout(async () => {
-      await applyOutcome(cell.label);
-      renderGrid();
-      checkForWinner();
-      pickLock = false;
+      try {
+        await applyOutcome(cell.label);
+        renderGrid();
+        checkForWinner();
+        if (!winnerShown) toggleTeam();
+      } finally {
+        pickLock = false;
+      }
     }, Math.floor(tileFlipMs * 0.52));
   }
 
@@ -1018,6 +1021,7 @@
 
     scores.A = last.prevScores.A;
     scores.B = last.prevScores.B;
+    activeTeam = last.team;
 
     const cell = board[last.idx];
     if (cell) cell.revealed = false;
@@ -1085,9 +1089,9 @@
 
   function onTap(el, fn){ el.addEventListener("click", fn); }
 
-  onTap(els.toggleTeamBtn, () => { if (started) toggleTeam(); });
+  onTap(els.toggleTeamBtn, toggleTeam);
   onTap(els.undoBtn, () => { if (started) undoLast(); });
-  onTap(els.settingsBtn, () => { if (started) openSettings(); });
+  onTap(els.settingsBtn, openSettings);
   onTap(els.closeSettingsBtn, closeSettings);
 
   els.settingsOverlay.addEventListener("click", (e)=>{ if (e.target === els.settingsOverlay) closeSettings(); });
@@ -1139,6 +1143,7 @@
     muted = !muted;
     setMuteUI();
     applySettingsToAudio();
+    if (!muted && audio.ready) ensureMusicPlaying();
     setLog(muted ? "Sound muted." : "Sound on.");
   });
 
@@ -1151,6 +1156,8 @@
     try{
       await ensureAudioAwake();
       started = true;
+      els.toggleTeamBtn.disabled = false;
+      els.settingsBtn.disabled = false;
       applySettingsToUI();
       setMuteUI();
       updateScores();
@@ -1159,7 +1166,6 @@
       els.startOverlay.classList.add("hidden");
       els.startOverlay.setAttribute("aria-hidden", "true");
       setLog("Ready! Tap a square.");
-      playSfx("click");
     } catch (err){
       els.startStatus.textContent = "Start failed";
       els.startHint.textContent = String(err?.message || err || "Unknown error");
