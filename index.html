@@ -354,7 +354,6 @@
     <div class="team">
       <div>
         <h2 contenteditable="true" id="teamAName">Team A</h2>
-        <div style="opacity:.8;font-size:12px;">(tap name to edit)</div>
       </div>
       <div class="score" id="teamAScore">0</div>
     </div>
@@ -362,7 +361,6 @@
     <div class="team">
       <div>
         <h2 contenteditable="true" id="teamBName">Team B</h2>
-        <div style="opacity:.8;font-size:12px;">(tap name to edit)</div>
       </div>
       <div class="score" id="teamBScore">0</div>
     </div>
@@ -381,11 +379,9 @@
     <div class="card" role="dialog" aria-modal="true">
       <div class="startHero">
         <div class="startTitle">Kingdom Clash</div>
-        <div class="startSub">Press the button to start!</div>
       </div>
 
       <div class="startRow">
-        <span class="pill" id="startStatus">Not started</span>
         <button id="startBtn" class="startBtn" type="button">START GAME</button>
       </div>
 
@@ -539,7 +535,6 @@
 
     startOverlay: document.getElementById("startOverlay"),
     startBtn: document.getElementById("startBtn"),
-    startStatus: document.getElementById("startStatus"),
     startHint: document.getElementById("startHint"),
 
     overlay: document.getElementById("overlay"),
@@ -779,6 +774,7 @@
 
     for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
     for (let i = 0; i < dCount; i++) deck.push("x2");
+    for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
@@ -833,6 +829,11 @@
     return `<img class="tileImg" src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.textContent='${alt}'" />`;
   }
   function formatReveal(label){
+    if (label === "PICK_AGAIN"){
+      const src = outcomeImages["1000"];
+      const imgHtml = src ? imgTag(src, "1000") : `<div style="color: var(--accent);">1000</div>`;
+      return `${imgHtml}<div style="color: var(--good); font-size: 0.75em; font-weight: bold; margin-top: 2px;">Pick Again!</div>`;
+    }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
     if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
@@ -902,7 +903,7 @@
       setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
       await playSfx("bankrupt");
       showPopup("bankrupt", "BANKRUPT", "Score reset to 0", "var(--danger)", "BANKRUPT", true);
-      return;
+      return false;
     }
 
     if (label === "x2"){
@@ -911,17 +912,27 @@
       setLog(`${teamName} got x2! Score doubled.`);
       await playSfx("double");
       showPopup("double", "x2", "Score doubled!", "var(--good)", "x2", true);
-      return;
+      return false;
+    }
+
+    if (label === "PICK_AGAIN"){
+      scores[activeTeam] += 1000;
+      updateScores();
+      setLog(`${teamName} got +1000 and picks again! 🎉`);
+      await playSfx("coin");
+      showPopup("money", "+1000 — Pick Again!", "Same team goes again", "var(--accent)", "1000", true);
+      return true;
     }
 
     const value = Number(label);
-    if (!Number.isFinite(value)) return;
+    if (!Number.isFinite(value)) return false;
 
     scores[activeTeam] += value;
     updateScores();
     setLog(`${teamName} gained +${value}.`);
     await playSfx("coin");
     showPopup("money", `+${value}`, "points", "var(--accent)", String(value), true);
+    return false;
   }
 
   async function onPick(idx){
@@ -958,10 +969,10 @@
 
     setTimeout(async () => {
       try {
-        await applyOutcome(cell.label);
+        const keepTurn = await applyOutcome(cell.label);
         renderGrid();
         checkForWinner();
-        if (!winnerShown) toggleTeam();
+        if (!winnerShown && !keepTurn) toggleTeam();
       } finally {
         pickLock = false;
       }
@@ -1151,7 +1162,6 @@
 
   onTap(els.startBtn, async () => {
     if (started) return;
-    els.startStatus.textContent = "Starting…";
     els.startHint.textContent = "";
     try{
       await ensureAudioAwake();
@@ -1162,12 +1172,10 @@
       setMuteUI();
       updateScores();
       newBoard();
-      els.startStatus.textContent = "Started ✅";
       els.startOverlay.classList.add("hidden");
       els.startOverlay.setAttribute("aria-hidden", "true");
       setLog("Ready! Tap a square.");
     } catch (err){
-      els.startStatus.textContent = "Start failed";
       els.startHint.textContent = String(err?.message || err || "Unknown error");
     }
   });
