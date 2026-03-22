@@ -269,9 +269,10 @@
       display:flex;
       gap:10px;
       align-items:center;
-      justify-content:space-between;
+      justify-content:center;
       flex-wrap:wrap;
     }
+    .startBtn{ width:100%; }
     .pill{
       display:inline-block;
       padding:6px 10px;
@@ -318,6 +319,23 @@
       18%{ opacity:1; }
       100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
     }
+
+    /* SWAP POPUP */
+    .overlay.swap .card{
+      border-color:rgba(183,148,244,0.45);
+      box-shadow:0 0 50px rgba(183,148,244,0.2), 0 20px 70px rgba(0,0,0,0.55);
+    }
+
+    /* WINNER POPUP */
+    .overlay.winner .card{
+      width:min(96vw, 820px);
+      border-color:rgba(255,210,74,0.45);
+      box-shadow:0 0 80px rgba(255,210,74,0.25), 0 24px 80px rgba(0,0,0,0.7);
+    }
+    .overlay.winner .popupTitle{ font-size:clamp(46px, 9vw, 100px); }
+    .overlay.winner .popupSub{ font-size:clamp(18px, 2.5vw, 28px); opacity:1; font-weight:1000; }
+    .overlay.winner .popupAnim{ height:min(46vh, 440px); }
+    .overlay.winner .popupImg{ width:min(78%, 380px); }
 
     /* SETTINGS */
     .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
@@ -457,9 +475,9 @@
 <script>
   // ======== CONFIG ========
   const BOARD_PRESETS = {
-    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 2, double: 2 },
-    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 2, double: 2 },
-    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 1, double: 1 },
+    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 2, double: 2, swap: 1 },
+    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 2, double: 2, swap: 1 },
+    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 1, double: 1, swap: 1 },
   };
 
   const moneyValues = [100, 200, 500, 1000];
@@ -477,7 +495,7 @@
 
   const outcomeImages = {
     "100":"100.png","200":"200.png","500":"500.png","1000":"1000.png",
-    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
+    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png","SWAP":"swap.png"
   };
 
   const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
@@ -681,7 +699,7 @@
 
     audio.wakingPromise = (async () => {
       try{
-        if (audio.ctx.state === "suspended") await audio.ctx.resume();
+        if (audio.ctx.state !== "running") await audio.ctx.resume();
       } catch (_) {}
 
       // Keep-alive to reduce iOS suspends
@@ -740,6 +758,8 @@
     const buf = audio.buffers[key];
     if (audio.ctx && buf){
       try{
+        // Re-resume inline in case context was silently suspended since init
+        if (audio.ctx.state !== "running") await audio.ctx.resume();
         const src = audio.ctx.createBufferSource();
         src.buffer = buf;
 
@@ -771,10 +791,12 @@
     const preset = BOARD_PRESETS[String(settings.boardSize)] || BOARD_PRESETS["20"];
     const bCount = Number.isFinite(preset.bankrupt) ? preset.bankrupt : 2;
     const dCount = Number.isFinite(preset.double) ? preset.double : 2;
+    const sCount = Number.isFinite(preset.swap) ? preset.swap : 1;
 
     for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
     for (let i = 0; i < dCount; i++) deck.push("x2");
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
+    for (let i = 0; i < sCount; i++) deck.push("SWAP");
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
@@ -834,6 +856,9 @@
       const imgHtml = src ? imgTag(src, "1000") : `<div style="color: var(--accent);">1000</div>`;
       return `${imgHtml}<div style="color: var(--good); font-size: 0.75em; font-weight: bold; margin-top: 2px;">Pick Again!</div>`;
     }
+    if (label === "SWAP"){
+      return `<div style="font-size:1.5em;">🔄</div><div style="color:#b794f4;font-size:0.7em;font-weight:bold;margin-top:2px;">SWAP!</div>`;
+    }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
     if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
@@ -859,6 +884,8 @@
     if (popupTimer) clearTimeout(popupTimer);
     els.popupAnim.innerHTML = "";
 
+    els.overlay.classList.toggle("winner", kind === "winner");
+    els.overlay.classList.toggle("swap", kind === "swap");
     els.overlay.classList.remove("hidden");
     els.overlay.setAttribute("aria-hidden", "false");
 
@@ -889,7 +916,30 @@
   function hidePopup(){
     if (popupTimer){ clearTimeout(popupTimer); popupTimer = null; }
     els.overlay.classList.add("hidden");
+    els.overlay.classList.remove("winner", "swap");
     els.overlay.setAttribute("aria-hidden", "true");
+  }
+
+  const speechPhrases = {
+    "100":        "One hundred points",
+    "200":        "Two hundred points",
+    "500":        "Five hundred points",
+    "1000":       "One thousand points",
+    "BANKRUPT":   "Bankrupt!",
+    "x2":         "Double your score!",
+    "PICK_AGAIN": "One thousand points — pick again!",
+    "SWAP":       "Swap! Teams exchange scores!",
+  };
+
+  function speak(text){
+    if (muted) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate  = 1.05;
+    utt.pitch = 1.1;
+    utt.volume = clamp01(settings.sfxVol / 100);
+    window.speechSynthesis.speak(utt);
   }
 
   async function applyOutcome(label){
@@ -902,6 +952,7 @@
       updateScores();
       setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
       await playSfx("bankrupt");
+      speak(speechPhrases["BANKRUPT"]);
       showPopup("bankrupt", "BANKRUPT", "Score reset to 0", "var(--danger)", "BANKRUPT", true);
       return false;
     }
@@ -911,6 +962,7 @@
       updateScores();
       setLog(`${teamName} got x2! Score doubled.`);
       await playSfx("double");
+      speak(speechPhrases["x2"]);
       showPopup("double", "x2", "Score doubled!", "var(--good)", "x2", true);
       return false;
     }
@@ -920,8 +972,23 @@
       updateScores();
       setLog(`${teamName} got +1000 and picks again! 🎉`);
       await playSfx("coin");
+      speak(speechPhrases["PICK_AGAIN"]);
       showPopup("money", "+1000 — Pick Again!", "Same team goes again", "var(--accent)", "1000", true);
       return true;
+    }
+
+    if (label === "SWAP"){
+      const aName = els.teamAName.innerText.trim() || "Team A";
+      const bName = els.teamBName.innerText.trim() || "Team B";
+      const tmp = scores.A;
+      scores.A = scores.B;
+      scores.B = tmp;
+      updateScores();
+      setLog(`🔄 Scores swapped! ${aName} ↔ ${bName}`);
+      await playSfx("double");
+      speak(speechPhrases["SWAP"]);
+      showPopup("swap", "🔄 SWAP!", `${aName} ↔ ${bName} — scores exchanged`, "#b794f4", "SWAP", true);
+      return false;
     }
 
     const value = Number(label);
@@ -931,6 +998,7 @@
     updateScores();
     setLog(`${teamName} gained +${value}.`);
     await playSfx("coin");
+    speak(speechPhrases[String(value)] ?? `${value} points`);
     showPopup("money", `+${value}`, "points", "var(--accent)", String(value), true);
     return false;
   }
@@ -985,6 +1053,7 @@
     if (!done) return;
 
     winnerShown = true;
+    hidePopup(); // dismiss any outcome popup so the overlay is truly hidden
     setTimeout(() => {
       const aName = els.teamAName.innerText.trim() || "Team A";
       const bName = els.teamBName.innerText.trim() || "Team B";
@@ -997,7 +1066,7 @@
       if (audio.ready) startWinnerMusic();
       showPopup("winner", title, sub, "var(--accent)", "WINNER", false);
       setLog(`Board complete. ${title}`);
-    }, 350);
+    }, 650);
   }
 
   function updateScores(){
