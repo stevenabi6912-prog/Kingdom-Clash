@@ -32,7 +32,7 @@
 
       min-height:100svh;
       display:grid;
-      grid-template-rows:1fr auto;
+      grid-template-rows:auto 1fr;
       overflow-x:hidden;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
@@ -43,10 +43,10 @@
       position:relative;
       display:grid;
       place-items:center;
-      padding:24px;
-      padding-top:max(24px, env(safe-area-inset-top));
-      padding-left:max(24px, env(safe-area-inset-left));
-      padding-right:max(24px, env(safe-area-inset-right));
+      padding:16px;
+      padding-left:max(16px, env(safe-area-inset-left));
+      padding-right:max(16px, env(safe-area-inset-right));
+      padding-bottom:max(16px, env(safe-area-inset-bottom));
     }
 
     .bg{
@@ -73,7 +73,7 @@
       position:relative;
       z-index:1;
       width:min(92vw, 980px);
-      height:min(70vh, 720px);
+      height:min(calc(100svh - 130px), 720px);
       aspect-ratio:4/3;
       display:grid;
       place-items:center;
@@ -138,9 +138,11 @@
       grid-template-columns:1.4fr 1.4fr 1.2fr;
       gap:12px;
       align-items:center;
-      padding-bottom:max(14px, env(safe-area-inset-bottom));
+      padding-top:max(14px, env(safe-area-inset-top));
+      padding-bottom:14px;
       padding-left:max(16px, env(safe-area-inset-left));
       padding-right:max(16px, env(safe-area-inset-right));
+      border-bottom:1px solid rgba(255,255,255,0.08);
     }
 
     .team{
@@ -204,7 +206,7 @@
       .panel{ grid-template-columns:1fr; }
       .controls{ justify-items:stretch; }
       .log{ text-align:left; }
-      .grid-wrap{ height:min(62vh, 640px); }
+      .grid-wrap{ height:min(calc(100svh - 280px), 640px); }
     }
 
     /* OVERLAYS */
@@ -362,18 +364,20 @@
     body.present-mode{ grid-template-rows:1fr; cursor:none; }
     body.present-mode .panel{ display:none; }
     body.present-mode .tile{ cursor:none; pointer-events:none; }
+    body.present-mode .stage{ padding-top:92px; }
+    body.present-mode .grid-wrap{ height:min(calc(100svh - 110px), 800px); }
 
     .presenter-hud{
       position:absolute;
-      bottom:0; left:0; right:0;
+      top:0; left:0; right:0;
       z-index:5;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      padding:18px 40px;
+      padding:14px 40px;
       background:rgba(0,0,0,0.62);
       backdrop-filter:blur(12px);
-      border-top:1px solid rgba(255,255,255,0.10);
+      border-bottom:1px solid rgba(255,255,255,0.10);
     }
     .ph-team{ display:flex; align-items:center; gap:22px; }
     .ph-name{ font-weight:900; font-size:clamp(22px,3.2vw,42px); opacity:0.92; }
@@ -388,25 +392,6 @@
 </head>
 
 <body>
-  <div class="stage">
-    <div class="bg" aria-hidden="true"></div>
-    <div class="grid-wrap">
-      <div id="grid" class="grid"></div>
-    </div>
-    <!-- Presenter score HUD (visible only in present mode) -->
-    <div id="presenterHud" class="presenter-hud hidden">
-      <div class="ph-team">
-        <div class="ph-name" id="phTeamAName">Team A</div>
-        <div class="ph-score" id="phTeamAScore">0</div>
-      </div>
-      <div class="ph-vs">⚔️</div>
-      <div class="ph-team">
-        <div class="ph-score" id="phTeamBScore">0</div>
-        <div class="ph-name" id="phTeamBName">Team B</div>
-      </div>
-    </div>
-  </div>
-
   <div class="panel">
     <div class="team">
       <div>
@@ -429,6 +414,25 @@
       <button id="settingsBtn" type="button" disabled>Settings</button>
       <button id="presentBtn" type="button" disabled>📺 Present</button>
       <div class="log" id="log">Tap Start Game, then tap a square.</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid-wrap">
+      <div id="grid" class="grid"></div>
+    </div>
+    <!-- Presenter score HUD (visible only in present mode) -->
+    <div id="presenterHud" class="presenter-hud hidden">
+      <div class="ph-team">
+        <div class="ph-name" id="phTeamAName">Team A</div>
+        <div class="ph-score" id="phTeamAScore">0</div>
+      </div>
+      <div class="ph-vs">⚔️</div>
+      <div class="ph-team">
+        <div class="ph-score" id="phTeamBScore">0</div>
+        <div class="ph-name" id="phTeamBName">Team B</div>
+      </div>
     </div>
   </div>
 
@@ -937,6 +941,14 @@
 
   function showPopup(kind, title, sub, color, imageKey, autoClose = true){
     if (popupTimer) clearTimeout(popupTimer);
+
+    // Always track + broadcast so the presenter window mirrors the popup
+    currentPopup = { kind, title, sub, color, imageKey };
+    broadcastState();
+
+    // Operator screen never shows the overlay — log text is sufficient
+    if (!isPresentMode) return;
+
     els.popupAnim.innerHTML = "";
 
     els.overlay.classList.toggle("winner", kind === "winner");
@@ -957,8 +969,10 @@
       els.popupAnim.appendChild(im);
     } else {
       const fallback = document.createElement("div");
-      fallback.style.fontSize = "72px";
-      fallback.textContent = (imageKey === "BANKRUPT") ? "💥" : "⭐";
+      fallback.style.fontSize = "96px";
+      fallback.textContent = imageKey === "SWAP" ? "🔄"
+                           : imageKey === "BANKRUPT" ? "💥"
+                           : "⭐";
       els.popupAnim.appendChild(fallback);
     }
 
@@ -966,41 +980,18 @@
     if (kind === "winner") addSparkles(14);
 
     if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
-
-    currentPopup = { kind, title, sub, color, imageKey };
-    broadcastState();
   }
 
   function hidePopup(){
     if (popupTimer){ clearTimeout(popupTimer); popupTimer = null; }
+    currentPopup = null;
+    broadcastState();
+    if (!isPresentMode) return;
     els.overlay.classList.add("hidden");
     els.overlay.classList.remove("winner", "swap");
     els.overlay.setAttribute("aria-hidden", "true");
-    currentPopup = null;
-    broadcastState();
   }
 
-  const speechPhrases = {
-    "100":        "One hundred points",
-    "200":        "Two hundred points",
-    "500":        "Five hundred points",
-    "1000":       "One thousand points",
-    "BANKRUPT":   "Bankrupt!",
-    "x2":         "Double your score!",
-    "PICK_AGAIN": "One thousand points — pick again!",
-    "SWAP":       "Swap! Teams exchange scores!",
-  };
-
-  function speak(text){
-    if (muted) return;
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.rate  = 1.05;
-    utt.pitch = 1.1;
-    utt.volume = clamp01(settings.sfxVol / 100);
-    window.speechSynthesis.speak(utt);
-  }
 
   async function applyOutcome(label){
     const teamName = activeTeam === "A"
@@ -1012,7 +1003,6 @@
       updateScores();
       setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
       await playSfx("bankrupt");
-      speak(speechPhrases["BANKRUPT"]);
       showPopup("bankrupt", "BANKRUPT", "Score reset to 0", "var(--danger)", "BANKRUPT", true);
       return false;
     }
@@ -1022,7 +1012,6 @@
       updateScores();
       setLog(`${teamName} got x2! Score doubled.`);
       await playSfx("double");
-      speak(speechPhrases["x2"]);
       showPopup("double", "x2", "Score doubled!", "var(--good)", "x2", true);
       return false;
     }
@@ -1032,7 +1021,6 @@
       updateScores();
       setLog(`${teamName} got +1000 and picks again! 🎉`);
       await playSfx("coin");
-      speak(speechPhrases["PICK_AGAIN"]);
       showPopup("money", "+1000 — Pick Again!", "Same team goes again", "var(--accent)", "1000", true);
       return true;
     }
@@ -1045,8 +1033,7 @@
       scores.B = tmp;
       updateScores();
       setLog(`🔄 Scores swapped! ${aName} ↔ ${bName}`);
-      await playSfx("double");
-      speak(speechPhrases["SWAP"]);
+      await playSfx("bankrupt");
       showPopup("swap", "🔄 SWAP!", `${aName} ↔ ${bName} — scores exchanged`, "#b794f4", "SWAP", true);
       return false;
     }
@@ -1058,7 +1045,6 @@
     updateScores();
     setLog(`${teamName} gained +${value}.`);
     await playSfx("coin");
-    speak(speechPhrases[String(value)] ?? `${value} points`);
     showPopup("money", `+${value}`, "points", "var(--accent)", String(value), true);
     return false;
   }
@@ -1234,6 +1220,10 @@
   onTap(els.toggleTeamBtn, toggleTeam);
   onTap(els.undoBtn, () => { if (started) undoLast(); });
   onTap(els.settingsBtn, openSettings);
+
+  // Broadcast updated team names to presenter immediately when typed
+  els.teamAName.addEventListener("input", broadcastState);
+  els.teamBName.addEventListener("input", broadcastState);
   onTap(els.closeSettingsBtn, closeSettings);
 
   els.settingsOverlay.addEventListener("click", (e)=>{ if (e.target === els.settingsOverlay) closeSettings(); });
