@@ -72,9 +72,8 @@
     .grid-wrap{
       position:relative;
       z-index:1;
-      width:min(92vw, 980px);
-      height:min(calc(100svh - 130px), 720px);
-      aspect-ratio:4/3;
+      width:min(96vw, 1440px);
+      height:min(calc(100svh - 130px), 820px);
       display:grid;
       place-items:center;
     }
@@ -365,7 +364,7 @@
     body.present-mode .panel{ display:none; }
     body.present-mode .tile{ cursor:none; pointer-events:none; }
     body.present-mode .stage{ padding-top:92px; }
-    body.present-mode .grid-wrap{ height:min(calc(100svh - 110px), 800px); }
+    body.present-mode .grid-wrap{ height:min(calc(100svh - 110px), 880px); }
 
     .presenter-hud{
       position:absolute;
@@ -916,7 +915,7 @@
       return `${imgHtml}<div style="color: var(--good); font-size: 0.75em; font-weight: bold; margin-top: 2px;">Pick Again!</div>`;
     }
     if (label === "SWAP"){
-      return `<div style="font-size:1.5em;">🔄</div><div style="color:#b794f4;font-size:0.7em;font-weight:bold;margin-top:2px;">SWAP!</div>`;
+      return imgTag("swap.png", "SWAP");
     }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
@@ -945,6 +944,10 @@
     // Always track + broadcast so the presenter window mirrors the popup
     currentPopup = { kind, title, sub, color, imageKey };
     broadcastState();
+
+    // Timer must be set before early-return so hidePopup() fires and clears
+    // the popup on the presenter screen even though operator has no overlay
+    if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
 
     // Operator screen never shows the overlay — log text is sufficient
     if (!isPresentMode) return;
@@ -978,8 +981,6 @@
 
     if (kind === "money") addSparkles(8);
     if (kind === "winner") addSparkles(14);
-
-    if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
   }
 
   function hidePopup(){
@@ -1221,9 +1222,9 @@
   onTap(els.undoBtn, () => { if (started) undoLast(); });
   onTap(els.settingsBtn, openSettings);
 
-  // Broadcast updated team names to presenter immediately when typed
-  els.teamAName.addEventListener("input", broadcastState);
-  els.teamBName.addEventListener("input", broadcastState);
+  // Refresh badge + broadcast to presenter immediately when a name is typed
+  els.teamAName.addEventListener("input", updateScores);
+  els.teamBName.addEventListener("input", updateScores);
   onTap(els.closeSettingsBtn, closeSettings);
 
   els.settingsOverlay.addEventListener("click", (e)=>{ if (e.target === els.settingsOverlay) closeSettings(); });
