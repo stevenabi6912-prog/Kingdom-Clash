@@ -357,6 +357,33 @@
       font-weight:900;
     }
     option{ color:#000; }
+
+    /* PRESENTER MODE */
+    body.present-mode{ grid-template-rows:1fr; cursor:none; }
+    body.present-mode .panel{ display:none; }
+    body.present-mode .tile{ cursor:none; pointer-events:none; }
+
+    .presenter-hud{
+      position:absolute;
+      bottom:0; left:0; right:0;
+      z-index:5;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:18px 40px;
+      background:rgba(0,0,0,0.62);
+      backdrop-filter:blur(12px);
+      border-top:1px solid rgba(255,255,255,0.10);
+    }
+    .ph-team{ display:flex; align-items:center; gap:22px; }
+    .ph-name{ font-weight:900; font-size:clamp(22px,3.2vw,42px); opacity:0.92; }
+    .ph-score{ font-weight:1000; font-size:clamp(32px,5.5vw,68px); color:var(--accent); }
+    .ph-vs{ font-size:30px; opacity:0.45; }
+
+    /* Present button — subtle teal tint */
+    #presentBtn{ background:rgba(56,189,153,0.18); border-color:rgba(56,189,153,0.38); }
+    #presentBtn:hover{ background:rgba(56,189,153,0.28); }
+    #presentBtn.live{ background:rgba(56,189,153,0.30); border-color:rgba(56,189,153,0.60); }
   </style>
 </head>
 
@@ -365,6 +392,18 @@
     <div class="bg" aria-hidden="true"></div>
     <div class="grid-wrap">
       <div id="grid" class="grid"></div>
+    </div>
+    <!-- Presenter score HUD (visible only in present mode) -->
+    <div id="presenterHud" class="presenter-hud hidden">
+      <div class="ph-team">
+        <div class="ph-name" id="phTeamAName">Team A</div>
+        <div class="ph-score" id="phTeamAScore">0</div>
+      </div>
+      <div class="ph-vs">⚔️</div>
+      <div class="ph-team">
+        <div class="ph-score" id="phTeamBScore">0</div>
+        <div class="ph-name" id="phTeamBName">Team B</div>
+      </div>
     </div>
   </div>
 
@@ -388,6 +427,7 @@
       <button id="toggleTeamBtn" type="button" disabled>Toggle Active Team</button>
       <button id="undoBtn" type="button" disabled>Undo</button>
       <button id="settingsBtn" type="button" disabled>Settings</button>
+      <button id="presentBtn" type="button" disabled>📺 Present</button>
       <div class="log" id="log">Tap Start Game, then tap a square.</div>
     </div>
   </div>
@@ -498,6 +538,14 @@
     "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png","SWAP":"swap.png"
   };
 
+  // ======== PRESENTER ========
+  const isPresentMode = new URLSearchParams(location.search).has('present');
+  const presenterChannel = typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('kingdom-clash-v1') : null;
+  let presenterWindow = null;
+  let currentPopup   = null; // tracks active popup data so it can be synced
+  // ===========================
+
   const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
   const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
   let settings = loadSettings();
@@ -554,6 +602,12 @@
     startOverlay: document.getElementById("startOverlay"),
     startBtn: document.getElementById("startBtn"),
     startHint: document.getElementById("startHint"),
+    presentBtn: document.getElementById("presentBtn"),
+    presenterHud: document.getElementById("presenterHud"),
+    phTeamAName: document.getElementById("phTeamAName"),
+    phTeamAScore: document.getElementById("phTeamAScore"),
+    phTeamBScore: document.getElementById("phTeamBScore"),
+    phTeamBName: document.getElementById("phTeamBName"),
 
     overlay: document.getElementById("overlay"),
     popupTitle: document.getElementById("popupTitle"),
@@ -831,6 +885,7 @@
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
       els.grid.appendChild(tile);
     });
+    broadcastState();
   }
 
   function renderGridPlaceholder(){
@@ -911,6 +966,9 @@
     if (kind === "winner") addSparkles(14);
 
     if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
+
+    currentPopup = { kind, title, sub, color, imageKey };
+    broadcastState();
   }
 
   function hidePopup(){
@@ -918,6 +976,8 @@
     els.overlay.classList.add("hidden");
     els.overlay.classList.remove("winner", "swap");
     els.overlay.setAttribute("aria-hidden", "true");
+    currentPopup = null;
+    broadcastState();
   }
 
   const speechPhrases = {
@@ -1004,6 +1064,7 @@
   }
 
   async function onPick(idx){
+    if (isPresentMode) return;
     if (!started) return;
 
     const now = performance.now();
@@ -1076,6 +1137,7 @@
       ? (els.teamAName.innerText.trim() || "Team A")
       : (els.teamBName.innerText.trim() || "Team B");
     els.activeTeamBadge.textContent = `Active: ${activeName}`;
+    broadcastState();
   }
 
   function toggleTeam(){
@@ -1237,6 +1299,7 @@
       started = true;
       els.toggleTeamBtn.disabled = false;
       els.settingsBtn.disabled = false;
+      els.presentBtn.disabled = false;
       applySettingsToUI();
       setMuteUI();
       updateScores();
@@ -1248,6 +1311,114 @@
       els.startHint.textContent = String(err?.message || err || "Unknown error");
     }
   });
+
+  // ======== PRESENTER LOGIC ========
+
+  function broadcastState(){
+    if (!presenterChannel || isPresentMode) return;
+    presenterChannel.postMessage({
+      type: 'STATE',
+      board,
+      scores,
+      activeTeam,
+      teamAName: els.teamAName.innerText.trim() || 'Team A',
+      teamBName: els.teamBName.innerText.trim() || 'Team B',
+      boardRows,
+      boardCols,
+      winnerShown,
+      popup: currentPopup,
+    });
+  }
+
+  function updatePresentBtn(){
+    if (!els.presentBtn) return;
+    const live = presenterWindow && !presenterWindow.closed;
+    els.presentBtn.textContent = live ? '✅ Presenting' : '📺 Present';
+    els.presentBtn.classList.toggle('live', !!live);
+  }
+
+  function openPresenter(){
+    if (presenterWindow && !presenterWindow.closed){
+      presenterWindow.focus();
+      return;
+    }
+    const url = location.href.split('?')[0] + '?present';
+    presenterWindow = window.open(
+      url,
+      'kingdom-clash-presenter',
+      'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=no'
+    );
+    updatePresentBtn();
+    // Poll for window close so button resets
+    const poll = setInterval(() => {
+      if (presenterWindow && presenterWindow.closed){
+        clearInterval(poll);
+        presenterWindow = null;
+        updatePresentBtn();
+      }
+    }, 1000);
+  }
+
+  onTap(els.presentBtn, openPresenter);
+
+  // Main window: respond to presenter READY ping with full state
+  if (!isPresentMode && presenterChannel){
+    presenterChannel.onmessage = (e) => {
+      if (e.data.type === 'READY') broadcastState();
+    };
+  }
+
+  // ---- Present mode receiver ----
+  if (isPresentMode){
+    document.body.classList.add('present-mode');
+    els.startOverlay.classList.add('hidden');
+    els.presenterHud.classList.remove('hidden');
+
+    // Tell main window we're ready
+    if (presenterChannel) presenterChannel.postMessage({ type: 'READY' });
+
+    let lastPopupKey = null;
+
+    if (presenterChannel){
+      presenterChannel.onmessage = (e) => {
+        if (e.data.type !== 'STATE') return;
+        const { board: b, scores: s, activeTeam: at, teamAName, teamBName,
+                boardRows: br, boardCols: bc, winnerShown: ws, popup } = e.data;
+
+        // Mirror state into local variables
+        board        = b;
+        scores       = s;
+        activeTeam   = at;
+        boardRows    = br;
+        boardCols    = bc;
+        winnerShown  = ws;
+
+        // Update name elements (used by updateScores badge)
+        els.teamAName.innerText = teamAName;
+        els.teamBName.innerText = teamBName;
+
+        // Update presenter HUD
+        els.phTeamAName.textContent  = teamAName;
+        els.phTeamAScore.textContent = s.A;
+        els.phTeamBScore.textContent = s.B;
+        els.phTeamBName.textContent  = teamBName;
+
+        renderGrid();
+
+        // Only trigger popup animation when popup actually changes
+        const popupKey = popup ? `${popup.kind}|${popup.title}` : null;
+        if (popupKey !== lastPopupKey){
+          lastPopupKey = popupKey;
+          if (popup){
+            showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
+          } else {
+            hidePopup();
+          }
+        }
+      };
+    }
+  }
+  // ==================================
 
   // Initial render
   applySettingsToUI();
