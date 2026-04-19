@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Kingdom Clash</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:rgba(0,0,0,0.55);
+      --tile:rgba(255,255,255,0.12);
+      --tile-hover:rgba(255,255,255,0.18);
+      --tile-revealed:rgba(0,0,0,0.55);
+      --text:#f5f7ff;
+      --accent:#ffd24a;
+      --danger:#ff5c5c;
+      --good:#59ffa0;
+    }
+    *{ box-sizing:border-box; }
+
+    html, body{
+      height:100%;
+      overscroll-behavior-y:none;
+      -webkit-text-size-adjust:100%;
+    }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+
+      min-height:100svh;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      overflow-x:hidden;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      touch-action: pan-y;
+    }
+
+    .stage{
+      position:relative;
+      display:grid;
+      place-items:center;
+      padding:16px;
+      padding-left:max(16px, env(safe-area-inset-left));
+      padding-right:max(16px, env(safe-area-inset-right));
+      padding-bottom:max(16px, env(safe-area-inset-bottom));
+    }
+
+    .bg{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)),
+        url("castle.jpg");
+      background-size:cover;
+      background-position:center;
+      filter:saturate(1.05);
+      transform:scale(1.02);
+    }
+    .bg::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at 50% 40%, transparent 0 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.7) 100%);
+    }
+
+    .grid-wrap{
+      position:relative;
+      z-index:1;
+      width:min(96vw, 1440px);
+      height:min(calc(100svh - 130px), 820px);
+      display:grid;
+      place-items:center;
+    }
+
+    .grid{
+      width:100%;
+      height:100%;
+      display:grid;
+      gap:10px;
+      padding:10px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .tile{
+      border-radius:14px;
+      background:var(--tile);
+      border:2px dashed rgba(255,255,255,0.20);
+      display:grid;
+      place-items:center;
+      font-weight:1000;
+      /* larger font */
+      font-size:clamp(22px, 3.2vw, 44px);
+      user-select:none;
+      cursor:pointer;
+      transition:transform 0.08s ease, background 0.15s ease;
+      text-shadow:0 2px 10px rgba(0,0,0,0.45);
+      transform-style:preserve-3d;
+      perspective:900px;
+      position:relative;
+      overflow:hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .tile:hover{ background:var(--tile-hover); transform:translateY(-2px); }
+    .tile:active{ transform:scale(0.99); }
+    .tile.revealed{
+      background:var(--tile-revealed);
+      border-style:solid;
+      cursor:default;
+      transform:none;
+    }
+    .tile.flipping{ animation:flip 420ms ease both; }
+    @keyframes flip{
+      0%{ transform:rotateY(0deg); }
+      45%{ transform:rotateY(90deg); }
+      55%{ transform:rotateY(90deg); }
+      100%{ transform:rotateY(0deg); }
+    }
+    .tileImg{
+      width:86%;
+      height:86%;
+      object-fit:contain;
+      filter:drop-shadow(0 10px 14px rgba(0,0,0,0.35));
+    }
+
+    .panel{
+      background:var(--panel);
+      padding:14px 16px;
+      display:grid;
+      grid-template-columns:1.4fr 1.4fr 1.2fr;
+      gap:12px;
+      align-items:center;
+      padding-top:max(14px, env(safe-area-inset-top));
+      padding-bottom:14px;
+      padding-left:max(16px, env(safe-area-inset-left));
+      padding-right:max(16px, env(safe-area-inset-right));
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+
+    .team{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+    }
+    .team h2{
+      margin:0;
+      font-size: 28px;
+      opacity:0.92;
+      font-weight:900;
+    }
+    .score{
+      font-size:34px;
+      font-weight:1000;
+      color:var(--accent);
+    }
+
+    .controls{ display:grid; gap:8px; justify-items:end; }
+
+    button{
+      border:none;
+      border-radius:12px;
+      padding:10px 12px;
+      font-weight:900;
+      cursor:pointer;
+      background:rgba(255,255,255,0.14);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.22);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:hover{ background:rgba(255,255,255,0.18); }
+    button:active{ transform:scale(0.99); }
+    button:disabled{ opacity:0.55; cursor:not-allowed; }
+
+    .activeBadge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      background:rgba(255,210,74,0.18);
+      border:1px solid rgba(255,210,74,0.35);
+      color:var(--accent);
+      justify-self:end;
+    }
+
+    .log{
+      font-size:14px;
+      opacity:0.92;
+      text-align:right;
+      line-height:1.25;
+    }
+
+    @media (max-width:800px){
+      .panel{ grid-template-columns:1fr; }
+      .controls{ justify-items:stretch; }
+      .log{ text-align:left; }
+      .grid-wrap{ height:min(calc(100svh - 280px), 640px); }
+    }
+
+    /* OVERLAYS */
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:grid;
+      place-items:center;
+      background:rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      z-index:9999;
+      padding:16px;
+      touch-action: manipulation;
+    }
+    .hidden{ display:none; }
+
+    .card{
+      width:min(92vw, 560px);
+      border-radius:22px;
+      background:rgba(15, 18, 32, 0.94);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 70px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      display:grid;
+      gap:12px;
+      transform:scale(0.96);
+      opacity:0;
+      animation:popIn 220ms ease forwards;
+    }
+    @keyframes popIn{ to { transform:scale(1); opacity:1; } }
+
+    /* Start overlay */
+    .startHero{
+      display:grid;
+      gap:8px;
+      text-align:center;
+      padding:16px 14px 12px;
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,210,74,0.18), rgba(255,210,74,0.06));
+      border:1px solid rgba(255,210,74,0.28);
+    }
+    .startTitle{
+      font-weight:1000;
+      font-size:clamp(26px, 5vw, 42px);
+      letter-spacing:0.3px;
+    }
+    .startSub{
+      opacity:0.92;
+      font-weight:900;
+      line-height:1.25;
+      font-size:14px;
+    }
+    .startBtn{
+      padding:16px 16px;
+      border-radius:18px;
+      font-weight:1000;
+      font-size:18px;
+      background:rgba(255,210,74,0.25);
+      border:1px solid rgba(255,210,74,0.44);
+    }
+    .startRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .startBtn{ width:100%; }
+    .pill{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      background:rgba(255,210,74,0.18);
+      border:1px solid rgba(255,210,74,0.35);
+      color:var(--accent);
+    }
+    .smallNote{ opacity:0.86; font-size:13px; line-height:1.3; }
+
+    /* POPUP */
+    .popupTop{ display:grid; gap:4px; justify-items:center; margin-bottom:10px; }
+    .popupTitle{ font-weight:1000; font-size:clamp(30px, 4vw, 54px); letter-spacing:0.5px; text-align:center; }
+    .popupSub{ opacity:0.9; font-weight:900; text-align:center; }
+    .popupAnim{
+      position:relative;
+      height:260px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+    .popupImg{
+      width:min(82%, 340px);
+      height:auto;
+      object-fit:contain;
+      filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
+      animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards;
+      transform-origin:50% 65%;
+      opacity:0;
+    }
+    @keyframes imgPop{
+      0%{ transform:translateY(12px) scale(0.92); opacity:0; }
+      40%{ opacity:1; }
+      60%{ transform:translateY(-6px) scale(1.05); }
+      100%{ transform:translateY(0px) scale(1); opacity:1; }
+    }
+    .spark{ position:absolute; font-size:28px; animation:spark 750ms ease forwards; opacity:0; }
+    @keyframes spark{
+      0%{ transform:translate(var(--x), var(--y)) scale(0.7); opacity:0; }
+      18%{ opacity:1; }
+      100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
+    }
+
+    /* SWAP POPUP */
+    .overlay.swap .card{
+      border-color:rgba(183,148,244,0.45);
+      box-shadow:0 0 50px rgba(183,148,244,0.2), 0 20px 70px rgba(0,0,0,0.55);
+    }
+
+    /* WINNER POPUP */
+    .overlay.winner .card{
+      width:min(96vw, 820px);
+      border-color:rgba(255,210,74,0.45);
+      box-shadow:0 0 80px rgba(255,210,74,0.25), 0 24px 80px rgba(0,0,0,0.7);
+    }
+    .overlay.winner .popupTitle{ font-size:clamp(46px, 9vw, 100px); }
+    .overlay.winner .popupSub{ font-size:clamp(18px, 2.5vw, 28px); opacity:1; font-weight:1000; }
+    .overlay.winner .popupAnim{ height:min(46vh, 440px); }
+    .overlay.winner .popupImg{ width:min(78%, 380px); }
+
+    /* SETTINGS */
+    .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    .bigTitle{ font-weight:1000; font-size:18px; }
+    .sliderRow{ display:grid; gap:6px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); }
+    .sliderTop{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .sliderLabel{ font-weight:900; opacity:0.92; }
+    .sliderVal{ font-weight:1000; color:var(--accent); }
+    input[type="range"]{ width:100%; }
+    .btnGrid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .btnGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      background:rgba(255,255,255,0.10);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.18);
+      font-weight:900;
+    }
+    option{ color:#000; }
+
+    /* PRESENTER MODE */
+    body.present-mode{ grid-template-rows:1fr; cursor:none; overflow:hidden; height:100svh; }
+    body.present-mode .panel{ display:none; }
+    body.present-mode .tile{ cursor:none; pointer-events:none; }
+    body.present-mode .stage{
+      padding:0;
+      padding-top:82px; /* exact HUD height */
+      height:100svh;
+      overflow:hidden;
+    }
+    body.present-mode .grid-wrap{
+      width:min(96vw, 1400px);
+      height:calc(100svh - 82px);
+      max-height:none;
+    }
+
+    .presenter-hud{
+      position:absolute;
+      top:0; left:0; right:0;
+      height:82px;
+      z-index:5;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 40px;
+      background:rgba(0,0,0,0.62);
+      backdrop-filter:blur(12px);
+      border-bottom:1px solid rgba(255,255,255,0.10);
+    }
+    .ph-team{ display:flex; align-items:center; gap:22px; }
+    .ph-name{ font-weight:900; font-size:clamp(22px,3.2vw,42px); opacity:0.92; }
+    .ph-score{ font-weight:1000; font-size:clamp(32px,5.5vw,68px); color:var(--accent); }
+    .ph-vs{ font-size:30px; opacity:0.45; }
+
+    /* Present button — subtle teal tint */
+    #presentBtn{ background:rgba(56,189,153,0.18); border-color:rgba(56,189,153,0.38); }
+    #presentBtn:hover{ background:rgba(56,189,153,0.28); }
+    #presentBtn.live{ background:rgba(56,189,153,0.30); border-color:rgba(56,189,153,0.60); }
+  </style>
+</head>
+
+<body>
+  <div class="panel">
+    <div class="team">
+      <div>
+        <h2 contenteditable="true" id="teamAName">Team A</h2>
+      </div>
+      <div class="score" id="teamAScore">0</div>
+    </div>
+
+    <div class="team">
+      <div>
+        <h2 contenteditable="true" id="teamBName">Team B</h2>
+      </div>
+      <div class="score" id="teamBScore">0</div>
+    </div>
+
+    <div class="controls">
+      <div class="activeBadge" id="activeTeamBadge">Active: Team A</div>
+      <button id="toggleTeamBtn" type="button" disabled>Toggle Active Team</button>
+      <button id="undoBtn" type="button" disabled>Undo</button>
+      <button id="settingsBtn" type="button" disabled>Settings</button>
+      <button id="presentBtn" type="button" disabled>📺 Present</button>
+      <div class="log" id="log">Tap Start Game, then tap a square.</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid-wrap">
+      <div id="grid" class="grid"></div>
+    </div>
+    <!-- Presenter score HUD (visible only in present mode) -->
+    <div id="presenterHud" class="presenter-hud hidden">
+      <div class="ph-team">
+        <div class="ph-name" id="phTeamAName">Team A</div>
+        <div class="ph-score" id="phTeamAScore">0</div>
+      </div>
+      <div class="ph-vs">⚔️</div>
+      <div class="ph-team">
+        <div class="ph-score" id="phTeamBScore">0</div>
+        <div class="ph-name" id="phTeamBName">Team B</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- START OVERLAY -->
+  <div id="startOverlay" class="overlay" aria-hidden="false">
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="startHero">
+        <div class="startTitle">Kingdom Clash</div>
+      </div>
+
+      <div class="startRow">
+        <button id="startBtn" class="startBtn" type="button">START GAME</button>
+      </div>
+
+      <div class="smallNote" id="startHint"></div>
+    </div>
+  </div>
+
+  <!-- POPUP (no OK button; tap anywhere to dismiss) -->
+  <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="popupTop">
+        <div id="popupTitle" class="popupTitle">+100</div>
+        <div id="popupSub" class="popupSub">points</div>
+      </div>
+      <div id="popupAnim" class="popupAnim"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="row">
+        <div class="bigTitle">Kingdom Clash Settings</div>
+        <button id="closeSettingsBtn" type="button" style="padding:8px 10px;border-radius:12px;">Close</button>
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
+          <div class="sliderLabel">Board Size</div>
+          <div class="sliderVal" id="boardSizeVal">20 tiles (4×5)</div>
+        </div>
+        <select id="boardSizeSelect">
+          <option value="20">20 tiles (4×5)</option>
+          <option value="16">16 tiles (4×4)</option>
+          <option value="12">12 tiles (3×4)</option>
+        </select>
+        <div class="smallNote" style="opacity:.78;">Changing this starts a new board.</div>
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
+          <div class="sliderLabel">Background Music</div>
+          <div class="sliderVal"><span id="musicVolVal">25</span>%</div>
+        </div>
+        <input id="musicVol" type="range" min="0" max="100" step="1" value="25" />
+      </div>
+
+      <div class="sliderRow">
+        <div class="sliderTop">
+          <div class="sliderLabel">Sound Effects</div>
+          <div class="sliderVal"><span id="sfxVolVal">70</span>%</div>
+        </div>
+        <input id="sfxVol" type="range" min="0" max="100" step="1" value="70" />
+      </div>
+
+      <div class="btnGrid3">
+        <button id="newBoardBtn" type="button">New Board</button>
+        <button id="resetScoresBtn" type="button">Reset Scores</button>
+        <button id="muteBtn" type="button">Mute: Off</button>
+      </div>
+
+      <div class="btnGrid2">
+        <button id="testSfxBtn" type="button">Test SFX</button>
+        <button id="defaultsBtn" type="button">Defaults</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MUSIC -->
+  <audio id="musicBgEl" src="bg-music.mp3" preload="auto" loop playsinline></audio>
+  <audio id="musicWinEl" src="winner-music.mp3" preload="auto" loop playsinline></audio>
+
+<script>
+  // ======== CONFIG ========
+  const BOARD_PRESETS = {
+    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 2, double: 2, swap: 1 },
+    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 2, double: 2, swap: 1 },
+    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 1, double: 1, swap: 1 },
+  };
+
+  const moneyValues = [100, 200, 500, 1000];
+
+  const relSfx = { coin: 0.90, bankrupt: 1.00, double: 0.95 };
+  const sfxFiles = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
+
+  const popupAutoCloseMs = 3000;
+  const tileFlipMs = 420;
+  const musicFadeMs = 700;
+
+  // Anti-double-trigger (fixes “everything started doubling”)
+  const tapDedupMs = 450;
+  // ========================
+
+  const outcomeImages = {
+    "100":"100.png","200":"200.png","500":"500.png","1000":"1000.png",
+    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png","SWAP":"swap.png"
+  };
+
+  // ======== PRESENTER ========
+  const isPresentMode = new URLSearchParams(location.search).has('present');
+  const presenterChannel = typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('kingdom-clash-v1') : null;
+  let presenterWindow = null;
+  let currentPopup   = null; // tracks active popup data so it can be synced
+  // ===========================
+
+  const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
+  const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
+  let settings = loadSettings();
+
+  let boardRows = BOARD_PRESETS[settings.boardSize]?.rows ?? 4;
+  let boardCols = BOARD_PRESETS[settings.boardSize]?.cols ?? 5;
+
+  let activeTeam = "A";
+  let scores = { A: 0, B: 0 };
+  let board = [];
+  let muted = false;
+
+  let popupTimer = null;
+  let winnerShown = false;
+  let started = false;
+
+  // Undo stack
+  const undoStack = [];
+
+  // Interaction locks / dedup
+  let pickLock = false;
+  let lastTapKey = "";
+  let lastTapAt = 0;
+
+  const audio = {
+    ready:false,
+    initPromise:null,
+    wakingPromise:null,
+    ctx:null,
+    masterMusicGain:null,
+    bgGain:null,
+    winGain:null,
+    sfxGain:null,
+    bgSrc:null,
+    winSrc:null,
+    buffers:{},
+    keepAliveOsc:null,
+    htmlPool:{ coin:[], bankrupt:[], double:[] },
+    htmlIdx:{ coin:0, bankrupt:0, double:0 }
+  };
+
+  const els = {
+    grid: document.getElementById("grid"),
+    teamAName: document.getElementById("teamAName"),
+    teamBName: document.getElementById("teamBName"),
+    teamAScore: document.getElementById("teamAScore"),
+    teamBScore: document.getElementById("teamBScore"),
+    activeTeamBadge: document.getElementById("activeTeamBadge"),
+    toggleTeamBtn: document.getElementById("toggleTeamBtn"),
+    undoBtn: document.getElementById("undoBtn"),
+    settingsBtn: document.getElementById("settingsBtn"),
+    log: document.getElementById("log"),
+
+    startOverlay: document.getElementById("startOverlay"),
+    startBtn: document.getElementById("startBtn"),
+    startHint: document.getElementById("startHint"),
+    presentBtn: document.getElementById("presentBtn"),
+    presenterHud: document.getElementById("presenterHud"),
+    phTeamAName: document.getElementById("phTeamAName"),
+    phTeamAScore: document.getElementById("phTeamAScore"),
+    phTeamBScore: document.getElementById("phTeamBScore"),
+    phTeamBName: document.getElementById("phTeamBName"),
+
+    overlay: document.getElementById("overlay"),
+    popupTitle: document.getElementById("popupTitle"),
+    popupSub: document.getElementById("popupSub"),
+    popupAnim: document.getElementById("popupAnim"),
+
+    settingsOverlay: document.getElementById("settingsOverlay"),
+    closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+    boardSizeSelect: document.getElementById("boardSizeSelect"),
+    boardSizeVal: document.getElementById("boardSizeVal"),
+    musicVol: document.getElementById("musicVol"),
+    sfxVol: document.getElementById("sfxVol"),
+    musicVolVal: document.getElementById("musicVolVal"),
+    sfxVolVal: document.getElementById("sfxVolVal"),
+    testSfxBtn: document.getElementById("testSfxBtn"),
+    defaultsBtn: document.getElementById("defaultsBtn"),
+    newBoardBtn: document.getElementById("newBoardBtn"),
+    resetScoresBtn: document.getElementById("resetScoresBtn"),
+    muteBtn: document.getElementById("muteBtn"),
+
+    musicBgEl: document.getElementById("musicBgEl"),
+    musicWinEl: document.getElementById("musicWinEl"),
+  };
+
+  function setLog(msg){ els.log.textContent = msg; }
+  function setMuteUI(){ els.muteBtn.textContent = `Mute: ${muted ? "On" : "Off"}`; }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function setUndoUI(){ els.undoBtn.disabled = undoStack.length === 0; }
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { ...defaultSettings };
+      const obj = JSON.parse(raw);
+      const bs = (obj.boardSize === "12" || obj.boardSize === "16" || obj.boardSize === "20") ? obj.boardSize : defaultSettings.boardSize;
+      return {
+        musicVol: Number.isFinite(+obj.musicVol) ? +obj.musicVol : defaultSettings.musicVol,
+        sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol,
+        boardSize: bs
+      };
+    } catch (_) { return { ...defaultSettings }; }
+  }
+  function saveSettings(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (_) {} }
+
+  function applySettingsToUI(){
+    els.musicVol.value = String(settings.musicVol);
+    els.sfxVol.value = String(settings.sfxVol);
+    els.musicVolVal.textContent = String(settings.musicVol);
+    els.sfxVolVal.textContent = String(settings.sfxVol);
+
+    els.boardSizeSelect.value = settings.boardSize;
+    els.boardSizeVal.textContent = BOARD_PRESETS[settings.boardSize]?.label ?? "20 tiles";
+  }
+
+  function applySettingsToAudio(){
+    if (!audio.ready) return;
+    const music = muted ? 0 : clamp01(settings.musicVol / 100);
+    const sfx = muted ? 0 : clamp01(settings.sfxVol / 100);
+    audio.masterMusicGain.gain.setValueAtTime(music, audio.ctx.currentTime);
+    audio.sfxGain.gain.setValueAtTime(sfx, audio.ctx.currentTime);
+  }
+
+  function initHtmlFallbackPool(){
+    for (const k of Object.keys(sfxFiles)){
+      audio.htmlPool[k] = [];
+      audio.htmlIdx[k] = 0;
+      for (let i = 0; i < 4; i++){
+        const a = new Audio(sfxFiles[k]);
+        a.preload = "auto";
+        a.playsInline = true;
+        audio.htmlPool[k].push(a);
+      }
+    }
+  }
+
+  async function loadSfxBuffers(){
+    const entries = Object.entries(sfxFiles);
+    await Promise.all(entries.map(async ([key, url]) => {
+      try{
+        const res = await fetch(url, { cache:"no-store" });
+        if (!res.ok) throw new Error("fetch failed " + url);
+        const arr = await res.arrayBuffer();
+        audio.buffers[key] = await audio.ctx.decodeAudioData(arr);
+      } catch (_) {}
+    }));
+  }
+
+  function initAudioIfNeeded(){
+    if (audio.ready) return Promise.resolve();
+    if (audio.initPromise) return audio.initPromise;
+
+    audio.initPromise = (async () => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC){
+        initHtmlFallbackPool();
+        setLog("Audio not supported on this device.");
+        return;
+      }
+      const ctx = new AC();
+      audio.ctx = ctx;
+
+      audio.masterMusicGain = ctx.createGain();
+      audio.bgGain = ctx.createGain();
+      audio.winGain = ctx.createGain();
+      audio.sfxGain = ctx.createGain();
+
+      audio.bgGain.connect(audio.masterMusicGain);
+      audio.winGain.connect(audio.masterMusicGain);
+      audio.masterMusicGain.connect(ctx.destination);
+      audio.sfxGain.connect(ctx.destination);
+
+      audio.bgSrc = ctx.createMediaElementSource(els.musicBgEl);
+      audio.winSrc = ctx.createMediaElementSource(els.musicWinEl);
+      audio.bgSrc.connect(audio.bgGain);
+      audio.winSrc.connect(audio.winGain);
+
+      audio.bgGain.gain.value = 1;
+      audio.winGain.gain.value = 0;
+
+      initHtmlFallbackPool();
+      await resumeAudio();
+      await loadSfxBuffers();
+
+      audio.ready = true;
+      applySettingsToAudio();
+      startBgMusic();
+    })();
+
+    return audio.initPromise;
+  }
+
+  function resumeAudio(){
+    if (!audio.ctx) return Promise.resolve();
+    if (audio.wakingPromise) return audio.wakingPromise;
+
+    audio.wakingPromise = (async () => {
+      try{
+        if (audio.ctx.state !== "running") await audio.ctx.resume();
+      } catch (_) {}
+
+      // Keep-alive to reduce iOS suspends
+      try{
+        if (!audio.keepAliveOsc){
+          const osc = audio.ctx.createOscillator();
+          const g = audio.ctx.createGain();
+          g.gain.value = 0.00001;
+          osc.frequency.value = 30;
+          osc.connect(g);
+          g.connect(audio.ctx.destination);
+          osc.start();
+          audio.keepAliveOsc = osc;
+        }
+      } catch (_) {}
+    })().finally(() => { audio.wakingPromise = null; });
+
+    return audio.wakingPromise;
+  }
+
+  function ensureAudioAwake(){
+    return initAudioIfNeeded().then(() => resumeAudio());
+  }
+
+  function rampGain(node, value, ms = 500){
+    if (!audio.ready || !audio.ctx) return;
+    const t = audio.ctx.currentTime;
+    const end = t + ms / 1000;
+    node.gain.cancelScheduledValues(t);
+    node.gain.setValueAtTime(node.gain.value, t);
+    node.gain.linearRampToValueAtTime(value, end);
+  }
+
+  function ensureMusicPlaying(){
+    els.musicBgEl.play().catch(() => {});
+    els.musicWinEl.play().catch(() => {});
+  }
+
+  function startBgMusic(){
+    if (!audio.ready || muted) return;
+    ensureMusicPlaying();
+    rampGain(audio.bgGain, 1, musicFadeMs);
+    rampGain(audio.winGain, 0, musicFadeMs);
+  }
+  function startWinnerMusic(){
+    if (!audio.ready || muted) return;
+    ensureMusicPlaying();
+    rampGain(audio.bgGain, 0, musicFadeMs);
+    rampGain(audio.winGain, 1, musicFadeMs);
+  }
+
+  async function playSfx(key){
+    try { await ensureAudioAwake(); } catch (_) {}
+    if (muted) return;
+
+    const buf = audio.buffers[key];
+    if (audio.ctx && buf){
+      try{
+        // Re-resume inline in case context was silently suspended since init
+        if (audio.ctx.state !== "running") await audio.ctx.resume();
+        const src = audio.ctx.createBufferSource();
+        src.buffer = buf;
+
+        const g = audio.ctx.createGain();
+        g.gain.value = clamp01(relSfx[key] ?? 1);
+
+        src.connect(g);
+        g.connect(audio.sfxGain);
+        src.start(0);
+        return;
+      } catch (_) {}
+    }
+
+    // Fallback
+    const pool = audio.htmlPool[key] || [];
+    if (!pool.length) return;
+    const i = audio.htmlIdx[key] % pool.length;
+    audio.htmlIdx[key] = (audio.htmlIdx[key] + 1) % pool.length;
+
+    const el = pool[i];
+    try{ el.pause(); } catch (_) {}
+    try{ el.currentTime = 0; } catch (_) { try{ el.load(); } catch (_) {} }
+    el.volume = clamp01((settings.sfxVol / 100) * (relSfx[key] ?? 1));
+    el.play().catch(() => {});
+  }
+
+  function buildDeck(cellCount){
+    const deck = [];
+    const preset = BOARD_PRESETS[String(settings.boardSize)] || BOARD_PRESETS["20"];
+    const bCount = Number.isFinite(preset.bankrupt) ? preset.bankrupt : 2;
+    const dCount = Number.isFinite(preset.double) ? preset.double : 2;
+    const sCount = Number.isFinite(preset.swap) ? preset.swap : 1;
+
+    for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
+    for (let i = 0; i < dCount; i++) deck.push("x2");
+    for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
+    for (let i = 0; i < sCount; i++) deck.push("SWAP");
+    while (deck.length < cellCount){
+      deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
+    }
+    return shuffle(deck);
+  }
+
+  function clearUndo(){
+    undoStack.length = 0;
+    setUndoUI();
+  }
+
+  function newBoard(){
+    const cellCount = boardRows * boardCols;
+    board = buildDeck(cellCount).map(label => ({ label, revealed:false }));
+    winnerShown = false;
+    hidePopup();
+    renderGrid();
+    clearUndo();
+    setLog("New board ready. Ask a question 😄");
+    if (audio.ready) startBgMusic();
+  }
+
+  function renderGrid(){
+    els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
+    els.grid.innerHTML = "";
+
+    board.forEach((cell, idx) => {
+      const tile = document.createElement("div");
+      tile.className = "tile" + (cell.revealed ? " revealed" : "");
+      tile.dataset.idx = idx;
+      tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
+      els.grid.appendChild(tile);
+    });
+    broadcastState();
+  }
+
+  function renderGridPlaceholder(){
+    const cellCount = boardRows * boardCols;
+    els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
+    els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
+    els.grid.innerHTML = "";
+    for (let i = 0; i < cellCount; i++){
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.dataset.idx = i;
+      tile.textContent = String(i + 1);
+      els.grid.appendChild(tile);
+    }
+  }
+
+  function imgTag(src, alt){
+    return `<img class="tileImg" src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.textContent='${alt}'" />`;
+  }
+  function formatReveal(label){
+    if (label === "PICK_AGAIN"){
+      const src = outcomeImages["1000"];
+      const imgHtml = src ? imgTag(src, "1000") : `<div style="color: var(--accent);">1000</div>`;
+      return `${imgHtml}<div style="color: var(--good); font-size: 0.75em; font-weight: bold; margin-top: 2px;">Pick Again!</div>`;
+    }
+    if (label === "SWAP"){
+      return imgTag("swap.png", "SWAP");
+    }
+    const src = outcomeImages[label];
+    if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
+    if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
+    if (label === "x2") return `<div style="color: var(--good);">x2</div>`;
+    return `<div style="color: var(--accent);">${label}</div>`;
+  }
+
+  function addSparkles(count = 10){
+    for (let i = 0; i < count; i++){
+      const s = document.createElement("div");
+      s.className = "spark";
+      s.textContent = "✨";
+      s.style.left = "50%";
+      s.style.top = "60%";
+      s.style.setProperty("--x", (Math.random() * 320 - 160) + "px");
+      s.style.setProperty("--y", (Math.random() * 70 - 25) + "px");
+      s.style.animationDelay = (Math.random() * 140) + "ms";
+      els.popupAnim.appendChild(s);
+    }
+  }
+
+  function showPopup(kind, title, sub, color, imageKey, autoClose = true){
+    if (popupTimer) clearTimeout(popupTimer);
+
+    // Always track + broadcast so the presenter window mirrors the popup
+    currentPopup = { kind, title, sub, color, imageKey };
+    broadcastState();
+
+    // Timer must be set before early-return so hidePopup() fires and clears
+    // the popup on the presenter screen even though operator has no overlay
+    if (autoClose) popupTimer = setTimeout(() => hidePopup(), popupAutoCloseMs);
+
+    // Operator screen never shows the overlay — log text is sufficient
+    if (!isPresentMode) return;
+
+    els.popupAnim.innerHTML = "";
+
+    els.overlay.classList.toggle("winner", kind === "winner");
+    els.overlay.classList.toggle("swap", kind === "swap");
+    els.overlay.classList.remove("hidden");
+    els.overlay.setAttribute("aria-hidden", "false");
+
+    els.popupTitle.textContent = title;
+    els.popupTitle.style.color = color;
+    els.popupSub.textContent = sub;
+
+    const src = outcomeImages[imageKey];
+    if (src){
+      const im = document.createElement("img");
+      im.className = "popupImg";
+      im.src = src;
+      im.alt = imageKey;
+      els.popupAnim.appendChild(im);
+    } else {
+      const fallback = document.createElement("div");
+      fallback.style.fontSize = "96px";
+      fallback.textContent = imageKey === "SWAP" ? "🔄"
+                           : imageKey === "BANKRUPT" ? "💥"
+                           : "⭐";
+      els.popupAnim.appendChild(fallback);
+    }
+
+    if (kind === "money") addSparkles(8);
+    if (kind === "winner") addSparkles(14);
+  }
+
+  function hidePopup(){
+    if (popupTimer){ clearTimeout(popupTimer); popupTimer = null; }
+    currentPopup = null;
+    broadcastState();
+    if (!isPresentMode) return;
+    els.overlay.classList.add("hidden");
+    els.overlay.classList.remove("winner", "swap");
+    els.overlay.setAttribute("aria-hidden", "true");
+  }
+
+
+  async function applyOutcome(label){
+    const teamName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+
+    if (label === "BANKRUPT"){
+      scores[activeTeam] = 0;
+      updateScores();
+      setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
+      await playSfx("bankrupt");
+      showPopup("bankrupt", "BANKRUPT", "Score reset to 0", "var(--danger)", "BANKRUPT", true);
+      return false;
+    }
+
+    if (label === "x2"){
+      scores[activeTeam] *= 2;
+      updateScores();
+      setLog(`${teamName} got x2! Score doubled.`);
+      await playSfx("double");
+      showPopup("double", "x2", "Score doubled!", "var(--good)", "x2", true);
+      return false;
+    }
+
+    if (label === "PICK_AGAIN"){
+      scores[activeTeam] += 1000;
+      updateScores();
+      setLog(`${teamName} got +1000 and picks again! 🎉`);
+      await playSfx("coin");
+      showPopup("money", "+1000 — Pick Again!", "Same team goes again", "var(--accent)", "1000", true);
+      return true;
+    }
+
+    if (label === "SWAP"){
+      const aName = els.teamAName.innerText.trim() || "Team A";
+      const bName = els.teamBName.innerText.trim() || "Team B";
+      const tmp = scores.A;
+      scores.A = scores.B;
+      scores.B = tmp;
+      updateScores();
+      setLog(`🔄 Scores swapped! ${aName} ↔ ${bName}`);
+      await playSfx("bankrupt");
+      showPopup("swap", "🔄 SWAP!", `${aName} ↔ ${bName} — scores exchanged`, "#b794f4", "SWAP", true);
+      return false;
+    }
+
+    const value = Number(label);
+    if (!Number.isFinite(value)) return false;
+
+    scores[activeTeam] += value;
+    updateScores();
+    setLog(`${teamName} gained +${value}.`);
+    await playSfx("coin");
+    showPopup("money", `+${value}`, "points", "var(--accent)", String(value), true);
+    return false;
+  }
+
+  async function onPick(idx){
+    if (isPresentMode) return;
+    if (!started) return;
+
+    const now = performance.now();
+    const tapKey = String(idx);
+    if (tapKey == lastTapKey && (now - lastTapAt) < tapDedupMs) return;
+    lastTapKey = tapKey;
+    lastTapAt = now;
+
+    if (pickLock) return;
+
+    const cell = board[idx];
+    if (!cell || cell.revealed) return;
+
+    pickLock = true;
+    try { await ensureAudioAwake(); } catch (_) { pickLock = false; return; }
+
+    undoStack.push({
+      idx,
+      label: cell.label,
+      team: activeTeam,
+      prevScores: { A: scores.A, B: scores.B },
+    });
+    setUndoUI();
+
+    cell.revealed = true;
+
+    const tileEl = els.grid.querySelector(`[data-idx="${idx}"]`);
+    if (tileEl){
+      tileEl.classList.add("flipping");
+    }
+
+    setTimeout(async () => {
+      let keepTurn = false;
+      try {
+        keepTurn = await applyOutcome(cell.label);
+      } catch (_) {
+        // audio or other error — still finish the turn normally
+      }
+      try {
+        renderGrid();
+        checkForWinner();
+        if (!winnerShown && !keepTurn) toggleTeam();
+      } finally {
+        pickLock = false;
+      }
+    }, Math.floor(tileFlipMs * 0.52));
+  }
+
+  function checkForWinner(){
+    if (winnerShown) return;
+    const done = board.every(c => c.revealed);
+    if (!done) return;
+
+    winnerShown = true;
+    hidePopup(); // dismiss any outcome popup so the overlay is truly hidden
+    setTimeout(() => {
+      const aName = els.teamAName.innerText.trim() || "Team A";
+      const bName = els.teamBName.innerText.trim() || "Team B";
+
+      let title, sub;
+      if (scores.A > scores.B){ title = `${aName} WINS!`; sub = `Final: ${scores.A} to ${scores.B}`; }
+      else if (scores.B > scores.A){ title = `${bName} WINS!`; sub = `Final: ${scores.B} to ${scores.A}`; }
+      else { title = `IT'S A TIE!`; sub = `Final: ${scores.A} to ${scores.B}`; }
+
+      if (audio.ready) startWinnerMusic();
+      showPopup("winner", title, sub, "var(--accent)", "WINNER", false);
+      setLog(`Board complete. ${title}`);
+    }, 650);
+  }
+
+  function updateScores(){
+    els.teamAScore.textContent = scores.A;
+    els.teamBScore.textContent = scores.B;
+    const activeName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+    els.activeTeamBadge.textContent = `Active: ${activeName}`;
+    broadcastState();
+  }
+
+  function toggleTeam(){
+    activeTeam = activeTeam === "A" ? "B" : "A";
+    updateScores();
+    const teamName = activeTeam === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+    setLog(`Now picking: ${teamName}`);
+  }
+
+  function resetScores(){
+    scores = { A: 0, B: 0 };
+    updateScores();
+    clearUndo();
+    setLog("Scores reset.");
+  }
+
+  function undoLast(){
+    if (pickLock) return;
+    const last = undoStack.pop();
+    if (!last) return;
+
+    scores.A = last.prevScores.A;
+    scores.B = last.prevScores.B;
+    activeTeam = last.team;
+
+    const cell = board[last.idx];
+    if (cell) cell.revealed = false;
+
+    winnerShown = false;
+    hidePopup();
+    if (audio.ready) startBgMusic();
+
+    updateScores();
+    renderGrid();
+    setUndoUI();
+
+    const tName = last.team === "A"
+      ? (els.teamAName.innerText.trim() || "Team A")
+      : (els.teamBName.innerText.trim() || "Team B");
+    setLog(`Undid last pick for ${tName}.`);
+  }
+
+  function openSettings(){
+    applySettingsToUI();
+    els.settingsOverlay.classList.remove("hidden");
+    els.settingsOverlay.setAttribute("aria-hidden", "false");
+  }
+  function closeSettings(){
+    els.settingsOverlay.classList.add("hidden");
+    els.settingsOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  // --- Tile taps: hardened against “double fire” (touchend + synthetic click) ---
+  function tileFromTarget(t){ return t && t.closest ? t.closest(".tile") : null; }
+
+  // If a touch/pointer event happened, Safari may also dispatch a synthetic click.
+  // We suppress that click for a short window to prevent double-scoring.
+  let suppressClickUntil = 0;
+
+  function handleGridTapCore(target, eventType){
+    const tile = tileFromTarget(target);
+    if (!tile) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    if (!Number.isFinite(idx)) return;
+    onPick(idx, eventType);
+  }
+
+  function onGridPointerUp(e){
+    suppressClickUntil = performance.now() + 800;
+    if (e.cancelable) e.preventDefault();
+    handleGridTapCore(e.target, "pointerup");
+  }
+
+  function onGridTouchEnd(e){
+    suppressClickUntil = performance.now() + 800;
+    if (e.cancelable) e.preventDefault();
+    handleGridTapCore(e.target, "touchend");
+  }
+
+  function onGridClick(e){
+    if (performance.now() < suppressClickUntil) return;
+    handleGridTapCore(e.target, "click");
+  }
+
+  // Use non-passive so we can preventDefault and stop the synthetic click on iOS/Safari.
+  els.grid.addEventListener("pointerup", onGridPointerUp, { passive:false });
+  els.grid.addEventListener("touchend", onGridTouchEnd, { passive:false });
+  els.grid.addEventListener("click", onGridClick, { passive:true });
+
+  function onTap(el, fn){ el.addEventListener("click", fn); }
+
+  onTap(els.toggleTeamBtn, toggleTeam);
+  onTap(els.undoBtn, () => { if (started) undoLast(); });
+  onTap(els.settingsBtn, openSettings);
+
+  // Refresh badge + broadcast to presenter immediately when a name is typed
+  els.teamAName.addEventListener("input", updateScores);
+  els.teamBName.addEventListener("input", updateScores);
+  onTap(els.closeSettingsBtn, closeSettings);
+
+  els.settingsOverlay.addEventListener("click", (e)=>{ if (e.target === els.settingsOverlay) closeSettings(); });
+
+  els.musicVol.addEventListener("input", () => {
+    settings.musicVol = parseInt(els.musicVol.value, 10);
+    els.musicVolVal.textContent = String(settings.musicVol);
+    saveSettings();
+    applySettingsToAudio();
+  });
+  els.sfxVol.addEventListener("input", () => {
+    settings.sfxVol = parseInt(els.sfxVol.value, 10);
+    els.sfxVolVal.textContent = String(settings.sfxVol);
+    saveSettings();
+    applySettingsToAudio();
+  });
+
+  els.boardSizeSelect.addEventListener("change", () => {
+    const v = (els.boardSizeSelect.value === "12" || els.boardSizeSelect.value === "16") ? els.boardSizeSelect.value : "20";
+    settings.boardSize = v;
+    saveSettings();
+
+    boardRows = BOARD_PRESETS[v].rows;
+    boardCols = BOARD_PRESETS[v].cols;
+    els.boardSizeVal.textContent = BOARD_PRESETS[v].label;
+
+    newBoard();
+    setLog(`Board size set to ${BOARD_PRESETS[v].label}.`);
+  });
+
+  onTap(els.defaultsBtn, () => {
+    settings = { ...defaultSettings };
+    saveSettings();
+
+    boardRows = BOARD_PRESETS[settings.boardSize].rows;
+    boardCols = BOARD_PRESETS[settings.boardSize].cols;
+
+    applySettingsToUI();
+    applySettingsToAudio();
+    newBoard();
+    setLog("Settings reset to defaults.");
+  });
+
+  onTap(els.testSfxBtn, () => playSfx("coin"));
+  onTap(els.newBoardBtn, () => { newBoard(); closeSettings(); });
+  onTap(els.resetScoresBtn, resetScores);
+
+  onTap(els.muteBtn, () => {
+    muted = !muted;
+    setMuteUI();
+    applySettingsToAudio();
+    if (!muted && audio.ready) ensureMusicPlaying();
+    setLog(muted ? "Sound muted." : "Sound on.");
+  });
+
+  els.overlay.addEventListener("click", hidePopup);
+
+  onTap(els.startBtn, async () => {
+    if (started) return;
+    els.startHint.textContent = "";
+    try{
+      await ensureAudioAwake();
+      started = true;
+      els.toggleTeamBtn.disabled = false;
+      els.settingsBtn.disabled = false;
+      els.presentBtn.disabled = false;
+      applySettingsToUI();
+      setMuteUI();
+      updateScores();
+      newBoard();
+      els.startOverlay.classList.add("hidden");
+      els.startOverlay.setAttribute("aria-hidden", "true");
+      setLog("Ready! Tap a square.");
+    } catch (err){
+      els.startHint.textContent = String(err?.message || err || "Unknown error");
+    }
+  });
+
+  // ======== PRESENTER LOGIC ========
+
+  function broadcastState(){
+    if (!presenterChannel || isPresentMode) return;
+    presenterChannel.postMessage({
+      type: 'STATE',
+      board,
+      scores,
+      activeTeam,
+      teamAName: els.teamAName.innerText.trim() || 'Team A',
+      teamBName: els.teamBName.innerText.trim() || 'Team B',
+      boardRows,
+      boardCols,
+      winnerShown,
+      popup: currentPopup,
+    });
+  }
+
+  function updatePresentBtn(){
+    if (!els.presentBtn) return;
+    const live = presenterWindow && !presenterWindow.closed;
+    els.presentBtn.textContent = live ? '✅ Presenting' : '📺 Present';
+    els.presentBtn.classList.toggle('live', !!live);
+  }
+
+  function openPresenter(){
+    if (presenterWindow && !presenterWindow.closed){
+      presenterWindow.focus();
+      return;
+    }
+    const url = location.href.split('?')[0] + '?present';
+    presenterWindow = window.open(
+      url,
+      'kingdom-clash-presenter',
+      'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=no'
+    );
+    updatePresentBtn();
+    // Poll for window close so button resets
+    const poll = setInterval(() => {
+      if (presenterWindow && presenterWindow.closed){
+        clearInterval(poll);
+        presenterWindow = null;
+        updatePresentBtn();
+      }
+    }, 1000);
+  }
+
+  onTap(els.presentBtn, openPresenter);
+
+  // Main window: respond to presenter READY ping with full state
+  if (!isPresentMode && presenterChannel){
+    presenterChannel.onmessage = (e) => {
+      if (e.data.type === 'READY') broadcastState();
+    };
+  }
+
+  // ---- Present mode receiver ----
+  if (isPresentMode){
+    document.body.classList.add('present-mode');
+    els.startOverlay.classList.add('hidden');
+    els.presenterHud.classList.remove('hidden');
+
+    // Tell main window we're ready
+    if (presenterChannel) presenterChannel.postMessage({ type: 'READY' });
+
+    let lastPopupKey = null;
+
+    if (presenterChannel){
+      presenterChannel.onmessage = (e) => {
+        if (e.data.type !== 'STATE') return;
+        const { board: b, scores: s, activeTeam: at, teamAName, teamBName,
+                boardRows: br, boardCols: bc, winnerShown: ws, popup } = e.data;
+
+        // Mirror state into local variables
+        board        = b;
+        scores       = s;
+        activeTeam   = at;
+        boardRows    = br;
+        boardCols    = bc;
+        winnerShown  = ws;
+
+        // Update name elements (used by updateScores badge)
+        els.teamAName.innerText = teamAName;
+        els.teamBName.innerText = teamBName;
+
+        // Update presenter HUD
+        els.phTeamAName.textContent  = teamAName;
+        els.phTeamAScore.textContent = s.A;
+        els.phTeamBScore.textContent = s.B;
+        els.phTeamBName.textContent  = teamBName;
+
+        renderGrid();
+
+        // Only trigger popup animation when popup actually changes
+        const popupKey = popup ? `${popup.kind}|${popup.title}` : null;
+        if (popupKey !== lastPopupKey){
+          lastPopupKey = popupKey;
+          if (popup){
+            showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
+          } else {
+            hidePopup();
+          }
+        }
+      };
+    }
+  }
+  // ==================================
+
+  // Initial render
+  applySettingsToUI();
+  setMuteUI();
+  updateScores();
+  setUndoUI();
+  renderGridPlaceholder();
+</script>
+</body>
+</html>
