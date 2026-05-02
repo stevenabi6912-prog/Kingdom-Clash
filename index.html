@@ -76,14 +76,18 @@
       height:min(calc(100svh - 130px), 820px);
       display:grid;
       place-items:center;
+      container-type:size;
     }
 
     .grid{
-      width:100%;
-      height:100%;
+      --cols:4;
+      --rows:4;
+      width:min(100cqw, calc(100cqh * var(--cols) / var(--rows)));
+      height:min(100cqh, calc(100cqw * var(--rows) / var(--cols)));
       display:grid;
       gap:10px;
       padding:10px;
+      box-sizing:border-box;
       touch-action: manipulation;
       -webkit-tap-highlight-color:transparent;
     }
@@ -557,6 +561,7 @@
     ? new BroadcastChannel('kingdom-clash-v1') : null;
   let presenterWindow = null;
   let currentPopup   = null; // tracks active popup data so it can be synced
+  let applyingRemoteState = false; // suppress re-broadcast while mirroring a peer
   // ===========================
 
   const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
@@ -887,6 +892,8 @@
   }
 
   function renderGrid(){
+    els.grid.style.setProperty("--cols", boardCols);
+    els.grid.style.setProperty("--rows", boardRows);
     els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
     els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
     els.grid.innerHTML = "";
@@ -903,6 +910,8 @@
 
   function renderGridPlaceholder(){
     const cellCount = boardRows * boardCols;
+    els.grid.style.setProperty("--cols", boardCols);
+    els.grid.style.setProperty("--rows", boardRows);
     els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
     els.grid.style.gridTemplateRows = `repeat(${boardRows}, 1fr)`;
     els.grid.innerHTML = "";
@@ -1321,7 +1330,7 @@
   // ======== PRESENTER LOGIC ========
 
   function broadcastState(){
-    if (!presenterChannel || isPresentMode) return;
+    if (!presenterChannel || isPresentMode || applyingRemoteState) return;
     presenterChannel.postMessage({
       type: 'STATE',
       board,
@@ -1332,6 +1341,7 @@
       boardRows,
       boardCols,
       winnerShown,
+      started,
       popup: currentPopup,
     });
   }
@@ -1367,11 +1377,63 @@
 
   onTap(els.presentBtn, openPresenter);
 
-  // Main window: respond to presenter READY ping with full state
+  // Main window: respond to READY pings AND mirror state from any peer operator window
   if (!isPresentMode && presenterChannel){
+    let lastPopupKey = null;
+
     presenterChannel.onmessage = (e) => {
-      if (e.data.type === 'READY') broadcastState();
+      if (e.data.type === 'READY'){ broadcastState(); return; }
+      if (e.data.type !== 'STATE') return;
+
+      const { board: b, scores: s, activeTeam: at,
+              teamAName: aName, teamBName: bName,
+              boardRows: br, boardCols: bc,
+              winnerShown: ws, started: st, popup } = e.data;
+
+      applyingRemoteState = true;
+      try {
+        board       = b;
+        scores      = s;
+        activeTeam  = at;
+        boardRows   = br;
+        boardCols   = bc;
+        winnerShown = ws;
+        if (typeof st === 'boolean') started = st;
+
+        // Don't clobber a name field the user is actively editing
+        if (document.activeElement !== els.teamAName) els.teamAName.innerText = aName;
+        if (document.activeElement !== els.teamBName) els.teamBName.innerText = bName;
+
+        els.teamAScore.textContent = s.A;
+        els.teamBScore.textContent = s.B;
+        els.activeTeamBadge.textContent = `Active: ${at === "A" ? aName : bName}`;
+
+        if (started){
+          els.startOverlay.classList.add('hidden');
+          els.startOverlay.setAttribute('aria-hidden', 'true');
+          els.toggleTeamBtn.disabled = false;
+          els.settingsBtn.disabled  = false;
+          els.presentBtn.disabled   = false;
+        }
+
+        renderGrid();
+
+        const popupKey = popup ? `${popup.kind}|${popup.title}` : null;
+        if (popupKey !== lastPopupKey){
+          lastPopupKey = popupKey;
+          if (popup){
+            showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
+          } else {
+            hidePopup();
+          }
+        }
+      } finally {
+        applyingRemoteState = false;
+      }
     };
+
+    // On startup, ask any other open window to push its current state so we mirror immediately
+    presenterChannel.postMessage({ type: 'READY' });
   }
 
   // ---- Present mode receiver ----
