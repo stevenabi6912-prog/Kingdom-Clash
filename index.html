@@ -565,6 +565,7 @@
   // ===========================
 
   const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
+  const LS_STATE_KEY = "kingdomClash_liveState_v1"; // cross-tab sync fallback when BroadcastChannel doesn't fire
   const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
   let settings = loadSettings();
 
@@ -1330,8 +1331,8 @@
   // ======== PRESENTER LOGIC ========
 
   function broadcastState(){
-    if (!presenterChannel || isPresentMode || applyingRemoteState) return;
-    presenterChannel.postMessage({
+    if (isPresentMode || applyingRemoteState) return;
+    const payload = {
       type: 'STATE',
       board,
       scores,
@@ -1343,7 +1344,14 @@
       winnerShown,
       started,
       popup: currentPopup,
-    });
+      ts: Date.now(),
+    };
+    if (presenterChannel){
+      try { presenterChannel.postMessage(payload); } catch (_) {}
+    }
+    // Fallback channel: storage events fire in every other same-origin tab,
+    // so this works even if BroadcastChannel is blocked between popup windows.
+    try { localStorage.setItem(LS_STATE_KEY, JSON.stringify(payload)); } catch (_) {}
   }
 
   function updatePresentBtn(){
@@ -1487,6 +1495,35 @@
     }
   }
   // ==================================
+
+  // ---- localStorage cross-tab fallback ----
+  // Replays incoming STATE writes through whichever onmessage handler this
+  // window installed (operator block above for !isPresentMode, presenter block
+  // for isPresentMode). This is the safety net for environments where
+  // BroadcastChannel between popup windows is unreliable (some Safari setups,
+  // COOP, etc.).
+  window.addEventListener('storage', (e) => {
+    if (e.key !== LS_STATE_KEY || !e.newValue) return;
+    try {
+      const data = JSON.parse(e.newValue);
+      if (presenterChannel && presenterChannel.onmessage){
+        presenterChannel.onmessage({ data });
+      }
+    } catch (_) {}
+  });
+
+  // Presenter just opened: apply the latest state already in localStorage
+  // (if any), so the HUD shows current names/scores without waiting for the
+  // operator to make another change.
+  if (isPresentMode && presenterChannel && presenterChannel.onmessage){
+    try {
+      const raw = localStorage.getItem(LS_STATE_KEY);
+      if (raw){
+        const data = JSON.parse(raw);
+        if (data && data.type === 'STATE') presenterChannel.onmessage({ data });
+      }
+    } catch (_) {}
+  }
 
   // Initial render
   applySettingsToUI();
