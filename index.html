@@ -392,6 +392,26 @@
       60%{ transform:scale(1.15); opacity:1; }
       100%{ transform:scale(1); opacity:1; }
     }
+    /* PRESENTER big countdown rendered inside the popup image area */
+    .popupCountdown{
+      font-weight:1000;
+      font-size:clamp(120px, 22vw, 240px);
+      color:#ffd24a;
+      text-align:center;
+      line-height:1;
+      font-variant-numeric:tabular-nums;
+      text-shadow:0 0 28px rgba(255,210,74,0.5);
+      transition:color 0.2s ease, text-shadow 0.2s ease, font-size 0.2s ease;
+    }
+    .popupCountdown.warn{
+      color:#e76f51;
+      text-shadow:0 0 32px rgba(231,111,81,0.7);
+    }
+    .popupCountdown.done{
+      color:#e76f51;
+      font-size:clamp(80px, 14vw, 160px);
+      text-shadow:0 0 36px rgba(231,111,81,0.85);
+    }
     select{
       width:100%;
       padding:10px 12px;
@@ -590,9 +610,9 @@
 <script>
   // ======== CONFIG ========
   const BOARD_PRESETS = {
-    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 2, double: 2, swap: 1 },
-    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 2, double: 2, swap: 1 },
-    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 1, double: 1, swap: 1 },
+    "20": { rows: 4, cols: 5, label: "20 tiles (4×5)", bankrupt: 1, double: 2, swap: 1 },
+    "16": { rows: 4, cols: 4, label: "16 tiles (4×4)", bankrupt: 1, double: 2, swap: 1 },
+    "12": { rows: 3, cols: 4, label: "12 tiles (3×4)", bankrupt: 0, double: 1, swap: 1 },
   };
 
   const moneyValues = [100, 200, 500, 1000];
@@ -934,6 +954,7 @@
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
     for (let i = 0; i < sCount; i++) deck.push("SWAP");
     deck.push("FACE_OFF");
+    deck.push("1000"); // replaces the bankrupt tile that was removed above
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
@@ -1101,10 +1122,19 @@
       els.faceOffStartTimer.disabled = false;
       els.faceOffStartTimer.textContent = 'Start 20s Timer';
 
-      function syncPresenterSub(sub){
+      function syncPresenterCountdown(label, warn, done){
         if (currentPopup){
-          currentPopup.sub = sub;
+          currentPopup.countdown = label;
+          currentPopup.countdownWarn = !!warn;
+          currentPopup.countdownDone = !!done;
           broadcastState();
+        }
+      }
+      function clearPresenterCountdown(){
+        if (currentPopup){
+          delete currentPopup.countdown;
+          delete currentPopup.countdownWarn;
+          delete currentPopup.countdownDone;
         }
       }
       function pulseTimer(big){
@@ -1126,7 +1156,7 @@
         els.faceOffTimer.classList.remove('warn', 'done');
         els.faceOffStartTimer.disabled = true;
         els.faceOffStartTimer.textContent = 'Running…';
-        syncPresenterSub(`${timerSeconds}s remaining`);
+        syncPresenterCountdown(timerSeconds, false, false);
         pulseTimer(false);
         timerInterval = setInterval(() => {
           timerSeconds -= 1;
@@ -1137,13 +1167,13 @@
             els.faceOffTimer.classList.add('done');
             els.faceOffStartTimer.disabled = false;
             els.faceOffStartTimer.textContent = 'Restart 20s Timer';
-            syncPresenterSub('TIME! — pick the winner');
+            syncPresenterCountdown('TIME!', false, true);
             try { playSfx("bankrupt"); } catch (_) {}
             return;
           }
           els.faceOffTimer.textContent = String(timerSeconds);
           if (timerSeconds <= 5) els.faceOffTimer.classList.add('warn');
-          syncPresenterSub(`${timerSeconds}s remaining`);
+          syncPresenterCountdown(timerSeconds, timerSeconds <= 5, false);
           pulseTimer(timerSeconds <= 5); // bigger pop in the warn zone for tension
         }, 1000);
       }
@@ -1624,6 +1654,34 @@
 
     let lastPopupKey = null;
 
+    function renderPopupCountdown(label, warn, done){
+      let cd = els.popupAnim.querySelector('.popupCountdown');
+      if (!cd){
+        // Replace whatever was in popupAnim (e.g. ⚔️ emoji) with a countdown div
+        els.popupAnim.innerHTML = '';
+        cd = document.createElement('div');
+        cd.className = 'popupCountdown';
+        els.popupAnim.appendChild(cd);
+      }
+      cd.classList.toggle('warn', !!warn);
+      cd.classList.toggle('done', !!done);
+      const newText = String(label);
+      if (cd.textContent !== newText){
+        cd.textContent = newText;
+        if (cd.animate){
+          const peak = done ? 1.32 : (warn ? 1.28 : 1.18);
+          cd.animate(
+            [
+              { transform: 'scale(1)' },
+              { transform: `scale(${peak})`, offset: 0.35 },
+              { transform: 'scale(1)' }
+            ],
+            { duration: 360, easing: 'cubic-bezier(.2,.85,.2,1)' }
+          );
+        }
+      }
+    }
+
     if (presenterChannel){
       presenterChannel.onmessage = (e) => {
         if (e.data.type !== 'STATE') return;
@@ -1656,15 +1714,18 @@
           lastPopupKey = popupKey;
           if (popup){
             showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
+            // If this popup arrived with a countdown already attached, render it
+            if (popup.countdown != null){
+              renderPopupCountdown(popup.countdown, popup.countdownWarn, popup.countdownDone);
+            }
           } else {
             hidePopup();
           }
-        } else if (popup && els.popupSub){
-          // Same popup kind+title (e.g. face-off countdown) — refresh sub text in place
-          // so the timer ticks down without re-animating the whole popup.
-          if (els.popupSub.textContent !== popup.sub){
+        } else if (popup){
+          // Same popup kind+title — refresh sub text + countdown in place so the
+          // timer ticks down without re-animating the whole popup.
+          if (els.popupSub && els.popupSub.textContent !== popup.sub){
             els.popupSub.textContent = popup.sub;
-            // Subtle pop on each tick to make the countdown feel alive.
             if (els.popupSub.animate){
               els.popupSub.animate(
                 [
@@ -1675,6 +1736,13 @@
                 { duration: 360, easing: 'cubic-bezier(.2,.85,.2,1)' }
               );
             }
+          }
+          if (popup.countdown != null){
+            renderPopupCountdown(popup.countdown, popup.countdownWarn, popup.countdownDone);
+          } else if (els.popupAnim.querySelector('.popupCountdown')){
+            // Countdown was cleared mid-popup — re-render the original popup body
+            // (the imageKey image/emoji) by replaying showPopup.
+            showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
           }
         }
       };
