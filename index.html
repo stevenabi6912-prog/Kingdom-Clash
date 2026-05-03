@@ -578,6 +578,49 @@
       </div>
 
       <div class="sliderRow">
+        <div class="sliderLabel" style="margin-bottom:4px;">Special Tile Counts</div>
+        <div class="btnGrid2" style="gap:10px;">
+          <label style="display:grid; gap:4px;">
+            <span class="smallNote">💥 Bankrupt</span>
+            <select id="bankruptCountSelect">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label style="display:grid; gap:4px;">
+            <span class="smallNote">✖️ x2 Double</span>
+            <select id="doubleCountSelect">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label style="display:grid; gap:4px;">
+            <span class="smallNote">🔄 Swap</span>
+            <select id="swapCountSelect">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label style="display:grid; gap:4px;">
+            <span class="smallNote">⚔️ Face Off</span>
+            <select id="faceOffCountSelect">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+        </div>
+        <div class="smallNote" style="opacity:.78;">Changes apply on the next board.</div>
+      </div>
+
+      <div class="sliderRow">
         <div class="sliderTop">
           <div class="sliderLabel">Background Music</div>
           <div class="sliderVal"><span id="musicVolVal">25</span>%</div>
@@ -647,7 +690,13 @@
 
   const LS_KEY = "kingdomClashSettings_v12_undo_boardsize_font";
   const LS_STATE_KEY = "kingdomClash_liveState_v1"; // cross-tab sync fallback when BroadcastChannel doesn't fire
-  const defaultSettings = { musicVol: 25, sfxVol: 70, boardSize: "20" };
+  const defaultSettings = {
+    musicVol: 25, sfxVol: 70, boardSize: "20",
+    bankruptCount: 1,
+    doubleCount: 2,
+    swapCount: 1,
+    faceOffCount: 1,
+  };
   let settings = loadSettings();
 
   let boardRows = BOARD_PRESETS[settings.boardSize]?.rows ?? 4;
@@ -722,6 +771,10 @@
     settingsOverlay: document.getElementById("settingsOverlay"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
     boardSizeSelect: document.getElementById("boardSizeSelect"),
+    bankruptCountSelect: document.getElementById("bankruptCountSelect"),
+    doubleCountSelect: document.getElementById("doubleCountSelect"),
+    swapCountSelect: document.getElementById("swapCountSelect"),
+    faceOffCountSelect: document.getElementById("faceOffCountSelect"),
     boardSizeVal: document.getElementById("boardSizeVal"),
     musicVol: document.getElementById("musicVol"),
     sfxVol: document.getElementById("sfxVol"),
@@ -756,10 +809,18 @@
       if (!raw) return { ...defaultSettings };
       const obj = JSON.parse(raw);
       const bs = (obj.boardSize === "12" || obj.boardSize === "16" || obj.boardSize === "20") ? obj.boardSize : defaultSettings.boardSize;
+      const clampInt = (v, def) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n >= 0 && n <= 3 ? n : def;
+      };
       return {
         musicVol: Number.isFinite(+obj.musicVol) ? +obj.musicVol : defaultSettings.musicVol,
         sfxVol: Number.isFinite(+obj.sfxVol) ? +obj.sfxVol : defaultSettings.sfxVol,
-        boardSize: bs
+        boardSize: bs,
+        bankruptCount: clampInt(obj.bankruptCount, defaultSettings.bankruptCount),
+        doubleCount:   clampInt(obj.doubleCount,   defaultSettings.doubleCount),
+        swapCount:     clampInt(obj.swapCount,     defaultSettings.swapCount),
+        faceOffCount:  clampInt(obj.faceOffCount,  defaultSettings.faceOffCount),
       };
     } catch (_) { return { ...defaultSettings }; }
   }
@@ -773,6 +834,11 @@
 
     els.boardSizeSelect.value = settings.boardSize;
     els.boardSizeVal.textContent = BOARD_PRESETS[settings.boardSize]?.label ?? "20 tiles";
+
+    if (els.bankruptCountSelect) els.bankruptCountSelect.value = String(settings.bankruptCount);
+    if (els.doubleCountSelect)   els.doubleCountSelect.value   = String(settings.doubleCount);
+    if (els.swapCountSelect)     els.swapCountSelect.value     = String(settings.swapCount);
+    if (els.faceOffCountSelect)  els.faceOffCountSelect.value  = String(settings.faceOffCount);
   }
 
   function applySettingsToAudio(){
@@ -947,21 +1013,23 @@
 
   function buildDeck(cellCount){
     const deck = [];
-    const preset = BOARD_PRESETS[String(settings.boardSize)] || BOARD_PRESETS["20"];
-    const bCount = Number.isFinite(preset.bankrupt) ? preset.bankrupt : 2;
-    const dCount = Number.isFinite(preset.double) ? preset.double : 2;
-    const sCount = Number.isFinite(preset.swap) ? preset.swap : 1;
+    const bCount = settings.bankruptCount ?? defaultSettings.bankruptCount;
+    const dCount = settings.doubleCount   ?? defaultSettings.doubleCount;
+    const sCount = settings.swapCount     ?? defaultSettings.swapCount;
+    const fCount = settings.faceOffCount  ?? defaultSettings.faceOffCount;
 
     for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
     for (let i = 0; i < dCount; i++) deck.push("x2");
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
     for (let i = 0; i < sCount; i++) deck.push("SWAP");
-    deck.push("FACE_OFF");
-    deck.push("1000"); // replaces the bankrupt tile that was removed above
+    for (let i = 0; i < fCount; i++) deck.push("FACE_OFF");
+    deck.push("1000"); // guaranteed high-value tile
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
-    return shuffle(deck);
+    // If user picked more specials than fit on the board, trim from the end of
+    // the shuffled deck so removals are random.
+    return shuffle(deck).slice(0, cellCount);
   }
 
   function clearUndo(){
@@ -1481,6 +1549,22 @@
     newBoard();
     setLog(`Board size set to ${BOARD_PRESETS[v].label}.`);
   });
+
+  function wireCountSelect(el, key, label){
+    if (!el) return;
+    el.addEventListener("change", () => {
+      const n = parseInt(el.value, 10);
+      const clamped = Number.isFinite(n) && n >= 0 && n <= 3 ? n : defaultSettings[key];
+      settings[key] = clamped;
+      el.value = String(clamped);
+      saveSettings();
+      setLog(`${label}: ${clamped}. Applies on the next board.`);
+    });
+  }
+  wireCountSelect(els.bankruptCountSelect, "bankruptCount", "Bankrupt count");
+  wireCountSelect(els.doubleCountSelect,   "doubleCount",   "x2 count");
+  wireCountSelect(els.swapCountSelect,     "swapCount",     "Swap count");
+  wireCountSelect(els.faceOffCountSelect,  "faceOffCount",  "Face Off count");
 
   onTap(els.defaultsBtn, () => {
     settings = { ...defaultSettings };
