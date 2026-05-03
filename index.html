@@ -1346,12 +1346,19 @@
       popup: currentPopup,
       ts: Date.now(),
     };
+    let bcOk = false, lsOk = false, lsErr = '';
     if (presenterChannel){
-      try { presenterChannel.postMessage(payload); } catch (_) {}
+      try { presenterChannel.postMessage(payload); bcOk = true; } catch (_) {}
     }
     // Fallback channel: storage events fire in every other same-origin tab,
     // so this works even if BroadcastChannel is blocked between popup windows.
-    try { localStorage.setItem(LS_STATE_KEY, JSON.stringify(payload)); } catch (_) {}
+    try { localStorage.setItem(LS_STATE_KEY, JSON.stringify(payload)); lsOk = true; }
+    catch (e) { lsErr = (e && e.message) || String(e); }
+    // Visible operator diagnostic so we can tell if broadcasts are firing.
+    const dbg = document.getElementById('opSyncDbg');
+    if (dbg){
+      dbg.textContent = `bc:${bcOk?'ok':'no'} ls:${lsOk?'ok':('err '+lsErr)} @${new Date(payload.ts).toLocaleTimeString()} A=${payload.teamAName}/${payload.scores.A} B=${payload.teamBName}/${payload.scores.B}`;
+    }
   }
 
   function updatePresentBtn(){
@@ -1525,24 +1532,67 @@
     } catch (_) {}
   }
 
-  // Presenter polling fallback: in case neither BroadcastChannel nor the
-  // storage event fires reliably between the operator and the popup window
-  // (some Safari setups), poll localStorage and apply any newer state.
+  // Presenter polling fallback: write directly to the HUD/board from
+  // localStorage, bypassing BroadcastChannel and the onmessage indirection
+  // entirely. If this doesn't work, localStorage itself isn't shared between
+  // the two windows (different profile, private mode, etc).
   if (isPresentMode){
     let _lastAppliedTs = 0;
+
+    // Tiny visible diagnostic so we can tell whether sync is firing at all.
+    const dbg = document.createElement('div');
+    dbg.id = 'phSyncDbg';
+    dbg.style.cssText = 'position:fixed; bottom:6px; right:10px; font-size:11px; color:rgba(255,255,255,0.55); z-index:9; font-family:system-ui;';
+    dbg.textContent = 'sync: waiting…';
+    document.body.appendChild(dbg);
+
     setInterval(() => {
       try {
         const raw = localStorage.getItem(LS_STATE_KEY);
-        if (!raw) return;
+        if (!raw){ dbg.textContent = 'sync: no state in localStorage'; return; }
         const data = JSON.parse(raw);
-        if (data && data.type === 'STATE' && (data.ts || 0) > _lastAppliedTs){
-          _lastAppliedTs = data.ts || 0;
-          if (presenterChannel && presenterChannel.onmessage){
-            presenterChannel.onmessage({ data });
-          }
+        if (!data || data.type !== 'STATE') return;
+        const ts = data.ts || 0;
+        if (ts <= _lastAppliedTs){
+          // Show heartbeat so we can tell polling is at least running
+          const ago = Math.round((Date.now() - ts) / 1000);
+          dbg.textContent = `sync: last update ${ago}s ago`;
+          return;
         }
-      } catch (_) {}
-    }, 700);
+        _lastAppliedTs = ts;
+
+        // Directly update presenter HUD — no indirection, no dependence on
+        // presenterChannel.onmessage being set or callable.
+        if (els.phTeamAName)  els.phTeamAName.textContent  = data.teamAName || 'Team A';
+        if (els.phTeamBName)  els.phTeamBName.textContent  = data.teamBName || 'Team B';
+        if (els.phTeamAScore) els.phTeamAScore.textContent = (data.scores && data.scores.A) || 0;
+        if (els.phTeamBScore) els.phTeamBScore.textContent = (data.scores && data.scores.B) || 0;
+
+        // Mirror local state and rebuild the board too
+        if (Array.isArray(data.board)) board       = data.board;
+        if (data.scores)               scores      = data.scores;
+        if (data.activeTeam)           activeTeam  = data.activeTeam;
+        if (data.boardRows)            boardRows   = data.boardRows;
+        if (data.boardCols)            boardCols   = data.boardCols;
+        if (typeof data.winnerShown === 'boolean') winnerShown = data.winnerShown;
+
+        applyingRemoteState = true;
+        try { renderGrid(); } finally { applyingRemoteState = false; }
+
+        dbg.textContent = `sync: applied ${new Date(ts).toLocaleTimeString()}`;
+      } catch (err) {
+        dbg.textContent = 'sync error: ' + (err && err.message || err);
+      }
+    }, 500);
+  }
+
+  // Operator diagnostic indicator (visible only when not in present mode)
+  if (!isPresentMode){
+    const opDbg = document.createElement('div');
+    opDbg.id = 'opSyncDbg';
+    opDbg.style.cssText = 'position:fixed; bottom:6px; left:10px; font-size:11px; color:rgba(255,255,255,0.55); z-index:9; font-family:system-ui; max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+    opDbg.textContent = 'broadcast: not yet';
+    document.body.appendChild(opDbg);
   }
 
   // Initial render
