@@ -475,6 +475,20 @@
     </div>
   </div>
 
+  <!-- FACE OFF WINNER PICKER (operator only) -->
+  <div id="faceOffOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true">
+      <div class="popupTop">
+        <div class="popupTitle" style="color:#ffd24a;">⚔️ FACE OFF!</div>
+        <div class="popupSub">20-second challenge — tap the winner to award +2000</div>
+      </div>
+      <div class="btnGrid2" style="margin-top:6px;">
+        <button id="faceOffWinA" type="button" style="padding:22px 12px; font-size:18px; font-weight:1000;">Team A Wins</button>
+        <button id="faceOffWinB" type="button" style="padding:22px 12px; font-size:18px; font-weight:1000;">Team B Wins</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS -->
   <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true">
@@ -632,6 +646,9 @@
     popupTitle: document.getElementById("popupTitle"),
     popupSub: document.getElementById("popupSub"),
     popupAnim: document.getElementById("popupAnim"),
+    faceOffOverlay: document.getElementById("faceOffOverlay"),
+    faceOffWinA: document.getElementById("faceOffWinA"),
+    faceOffWinB: document.getElementById("faceOffWinB"),
 
     settingsOverlay: document.getElementById("settingsOverlay"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
@@ -870,6 +887,7 @@
     for (let i = 0; i < dCount; i++) deck.push("x2");
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
     for (let i = 0; i < sCount; i++) deck.push("SWAP");
+    deck.push("FACE_OFF");
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
     }
@@ -937,6 +955,9 @@
     if (label === "SWAP"){
       return imgTag("swap.png", "SWAP");
     }
+    if (label === "FACE_OFF"){
+      return `<div style="font-size:1.6em; line-height:1;">⚔️</div><div style="color:#ffd24a; font-size:0.7em; font-weight:1000; margin-top:4px;">FACE OFF</div>`;
+    }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
     if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
@@ -995,6 +1016,7 @@
       fallback.style.fontSize = "96px";
       fallback.textContent = imageKey === "SWAP" ? "🔄"
                            : imageKey === "BANKRUPT" ? "💥"
+                           : imageKey === "FACE_OFF" ? "⚔️"
                            : "⭐";
       els.popupAnim.appendChild(fallback);
     }
@@ -1013,6 +1035,30 @@
     els.overlay.setAttribute("aria-hidden", "true");
   }
 
+
+  function pickFaceOffWinner(){
+    // Operator-only modal. Resolves with "A" or "B" once the host taps a winner.
+    return new Promise((resolve) => {
+      if (isPresentMode){ resolve(activeTeam); return; } // safety: presenter doesn't pick
+      const aName = els.teamAName.innerText.trim() || "Team A";
+      const bName = els.teamBName.innerText.trim() || "Team B";
+      els.faceOffWinA.textContent = `${aName} Wins`;
+      els.faceOffWinB.textContent = `${bName} Wins`;
+      els.faceOffOverlay.classList.remove('hidden');
+      els.faceOffOverlay.setAttribute('aria-hidden', 'false');
+
+      const onA = () => { cleanup(); resolve("A"); };
+      const onB = () => { cleanup(); resolve("B"); };
+      function cleanup(){
+        els.faceOffWinA.removeEventListener('click', onA);
+        els.faceOffWinB.removeEventListener('click', onB);
+        els.faceOffOverlay.classList.add('hidden');
+        els.faceOffOverlay.setAttribute('aria-hidden', 'true');
+      }
+      els.faceOffWinA.addEventListener('click', onA);
+      els.faceOffWinB.addEventListener('click', onB);
+    });
+  }
 
   async function applyOutcome(label){
     const teamName = activeTeam === "A"
@@ -1056,6 +1102,24 @@
       setLog(`🔄 Scores swapped! ${aName} ↔ ${bName}`);
       await playSfx("bankrupt");
       showPopup("swap", "🔄 SWAP!", `${aName} ↔ ${bName} — scores exchanged`, "#b794f4", "SWAP", true);
+      return false;
+    }
+
+    if (label === "FACE_OFF"){
+      setLog("⚔️ FACE OFF! 20-second challenge — pick the winner.");
+      // Presenter sees the announcement; operator drives the picker overlay below.
+      showPopup("faceoff", "⚔️ FACE OFF!", "20-second challenge", "#ffd24a", "FACE_OFF", false);
+      try { await playSfx("double"); } catch (_) {}
+
+      const winner = await pickFaceOffWinner();
+      scores[winner] += 2000;
+      updateScores();
+      const winnerName = winner === "A"
+        ? (els.teamAName.innerText.trim() || "Team A")
+        : (els.teamBName.innerText.trim() || "Team B");
+      setLog(`⚔️ ${winnerName} won the face-off! +2000`);
+      try { await playSfx("coin"); } catch (_) {}
+      showPopup("money", `⚔️ +2000`, `${winnerName} won the face-off!`, "var(--accent)", "FACE_OFF", true);
       return false;
     }
 
