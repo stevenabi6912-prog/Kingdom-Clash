@@ -85,22 +85,22 @@
       width:min(100cqw, calc(100cqh * var(--cols) / var(--rows)));
       height:min(100cqh, calc(100cqw * var(--rows) / var(--cols)));
       display:grid;
-      gap:10px;
-      padding:10px;
+      gap:clamp(4px, 0.9cqi, 12px);
+      padding:clamp(4px, 0.9cqi, 12px);
       box-sizing:border-box;
       touch-action: manipulation;
       -webkit-tap-highlight-color:transparent;
     }
 
     .tile{
-      border-radius:14px;
+      border-radius:clamp(8px, 1.2vw, 18px);
       background:var(--tile);
       border:2px dashed rgba(255,255,255,0.20);
       display:grid;
       place-items:center;
       font-weight:1000;
-      /* larger font */
-      font-size:clamp(22px, 3.2vw, 44px);
+      /* Scales smoothly with viewport — clamp prevents tiny/giant numbers */
+      font-size:clamp(18px, 4vw, 64px);
       user-select:none;
       cursor:pointer;
       transition:transform 0.08s ease, background 0.15s ease;
@@ -136,35 +136,38 @@
 
     .panel{
       background:var(--panel);
-      padding:14px 16px;
+      padding:clamp(8px, 1.4vw, 16px) clamp(10px, 1.6vw, 18px);
       display:grid;
       grid-template-columns:1.4fr 1.4fr 1.2fr;
-      gap:12px;
+      gap:clamp(6px, 1vw, 14px);
       align-items:center;
-      padding-top:max(14px, env(safe-area-inset-top));
-      padding-bottom:14px;
-      padding-left:max(16px, env(safe-area-inset-left));
-      padding-right:max(16px, env(safe-area-inset-right));
+      padding-top:max(clamp(8px, 1.4vw, 16px), env(safe-area-inset-top));
+      padding-bottom:clamp(8px, 1.4vw, 16px);
+      padding-left:max(clamp(10px, 1.6vw, 18px), env(safe-area-inset-left));
+      padding-right:max(clamp(10px, 1.6vw, 18px), env(safe-area-inset-right));
       border-bottom:1px solid rgba(255,255,255,0.08);
     }
 
     .team{
       display:grid;
       grid-template-columns:1fr auto;
-      gap:10px;
-      padding:10px 12px;
+      gap:clamp(6px, 1vw, 12px);
+      padding:clamp(6px, 1vw, 12px) clamp(8px, 1.2vw, 14px);
       border-radius:14px;
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
+      min-width:0; /* allow long names to truncate cleanly */
     }
     .team h2{
       margin:0;
-      font-size: 28px;
+      font-size:clamp(18px, 2.4vw, 34px);
       opacity:0.92;
       font-weight:900;
+      min-width:0;
+      word-break:break-word; /* long names wrap instead of overflowing */
     }
     .score{
-      font-size:34px;
+      font-size:clamp(24px, 3.4vw, 48px);
       font-weight:1000;
       color:var(--accent);
     }
