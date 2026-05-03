@@ -1357,7 +1357,7 @@
     // Visible operator diagnostic so we can tell if broadcasts are firing.
     const dbg = document.getElementById('opSyncDbg');
     if (dbg){
-      dbg.textContent = `bc:${bcOk?'ok':'no'} ls:${lsOk?'ok':('err '+lsErr)} @${new Date(payload.ts).toLocaleTimeString()} A=${payload.teamAName}/${payload.scores.A} B=${payload.teamBName}/${payload.scores.B}`;
+      dbg.textContent = `OPERATOR bc:${bcOk?'ok':'NO'} ls:${lsOk?'ok':('ERR '+lsErr)} @${new Date(payload.ts).toLocaleTimeString()} A=${payload.teamAName}/${payload.scores.A} B=${payload.teamBName}/${payload.scores.B}`;
     }
   }
 
@@ -1539,24 +1539,24 @@
   if (isPresentMode){
     let _lastAppliedTs = 0;
 
-    // Tiny visible diagnostic so we can tell whether sync is firing at all.
+    // Highly-visible diagnostic so we can tell whether sync is firing at all.
     const dbg = document.createElement('div');
     dbg.id = 'phSyncDbg';
-    dbg.style.cssText = 'position:fixed; bottom:6px; right:10px; font-size:11px; color:rgba(255,255,255,0.55); z-index:9; font-family:system-ui;';
-    dbg.textContent = 'sync: waiting…';
+    dbg.style.cssText = 'position:fixed; top:6px; left:50%; transform:translateX(-50%); padding:6px 12px; background:#222; color:#ffd24a; border:1px solid #ffd24a; border-radius:8px; font-size:13px; font-weight:700; z-index:99999; font-family:system-ui; box-shadow:0 2px 8px rgba(0,0,0,0.6);';
+    dbg.textContent = 'PRESENTER sync: waiting…';
     document.body.appendChild(dbg);
 
     setInterval(() => {
       try {
         const raw = localStorage.getItem(LS_STATE_KEY);
-        if (!raw){ dbg.textContent = 'sync: no state in localStorage'; return; }
+        if (!raw){ dbg.textContent = 'PRESENTER sync: NO state in localStorage'; return; }
         const data = JSON.parse(raw);
         if (!data || data.type !== 'STATE') return;
         const ts = data.ts || 0;
         if (ts <= _lastAppliedTs){
           // Show heartbeat so we can tell polling is at least running
           const ago = Math.round((Date.now() - ts) / 1000);
-          dbg.textContent = `sync: last update ${ago}s ago`;
+          dbg.textContent = `PRESENTER sync: last update ${ago}s ago`;
           return;
         }
         _lastAppliedTs = ts;
@@ -1579,9 +1579,9 @@
         applyingRemoteState = true;
         try { renderGrid(); } finally { applyingRemoteState = false; }
 
-        dbg.textContent = `sync: applied ${new Date(ts).toLocaleTimeString()}`;
+        dbg.textContent = `PRESENTER sync: applied ${new Date(ts).toLocaleTimeString()} (A=${data.teamAName})`;
       } catch (err) {
-        dbg.textContent = 'sync error: ' + (err && err.message || err);
+        dbg.textContent = 'PRESENTER sync error: ' + (err && err.message || err);
       }
     }, 500);
   }
@@ -1590,8 +1590,8 @@
   if (!isPresentMode){
     const opDbg = document.createElement('div');
     opDbg.id = 'opSyncDbg';
-    opDbg.style.cssText = 'position:fixed; bottom:6px; left:10px; font-size:11px; color:rgba(255,255,255,0.55); z-index:9; font-family:system-ui; max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-    opDbg.textContent = 'broadcast: not yet';
+    opDbg.style.cssText = 'position:fixed; top:6px; left:6px; padding:6px 12px; background:#222; color:#7be07b; border:1px solid #7be07b; border-radius:8px; font-size:13px; font-weight:700; z-index:99999; font-family:system-ui; max-width:80vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.6);';
+    opDbg.textContent = 'OPERATOR broadcast: not yet';
     document.body.appendChild(opDbg);
   }
 
