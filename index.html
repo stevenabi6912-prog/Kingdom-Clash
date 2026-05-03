@@ -1107,6 +1107,18 @@
           broadcastState();
         }
       }
+      function pulseTimer(big){
+        if (!els.faceOffTimer.animate) return;
+        const peak = big ? 1.28 : 1.18;
+        els.faceOffTimer.animate(
+          [
+            { transform: 'scale(1)' },
+            { transform: `scale(${peak})`, offset: 0.35 },
+            { transform: 'scale(1)' }
+          ],
+          { duration: 360, easing: 'cubic-bezier(.2,.85,.2,1)' }
+        );
+      }
       function startTimer(){
         if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
         timerSeconds = 20;
@@ -1115,6 +1127,7 @@
         els.faceOffStartTimer.disabled = true;
         els.faceOffStartTimer.textContent = 'Running…';
         syncPresenterSub(`${timerSeconds}s remaining`);
+        pulseTimer(false);
         timerInterval = setInterval(() => {
           timerSeconds -= 1;
           if (timerSeconds <= 0){
@@ -1131,6 +1144,7 @@
           els.faceOffTimer.textContent = String(timerSeconds);
           if (timerSeconds <= 5) els.faceOffTimer.classList.add('warn');
           syncPresenterSub(`${timerSeconds}s remaining`);
+          pulseTimer(timerSeconds <= 5); // bigger pop in the warn zone for tension
         }, 1000);
       }
 
@@ -1648,7 +1662,20 @@
         } else if (popup && els.popupSub){
           // Same popup kind+title (e.g. face-off countdown) — refresh sub text in place
           // so the timer ticks down without re-animating the whole popup.
-          els.popupSub.textContent = popup.sub;
+          if (els.popupSub.textContent !== popup.sub){
+            els.popupSub.textContent = popup.sub;
+            // Subtle pop on each tick to make the countdown feel alive.
+            if (els.popupSub.animate){
+              els.popupSub.animate(
+                [
+                  { transform: 'scale(1)' },
+                  { transform: 'scale(1.14)', offset: 0.35 },
+                  { transform: 'scale(1)' }
+                ],
+                { duration: 360, easing: 'cubic-bezier(.2,.85,.2,1)' }
+              );
+            }
+          }
         }
       };
     }
