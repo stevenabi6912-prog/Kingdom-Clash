@@ -352,6 +352,46 @@
     input[type="range"]{ width:100%; }
     .btnGrid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
     .btnGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* FACE OFF TIMER */
+    .faceOffTimerRow{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:14px;
+      align-items:center;
+      padding:6px 0 4px;
+    }
+    .faceOffStartBtn{
+      padding:14px 12px;
+      font-size:16px;
+      font-weight:1000;
+      background:rgba(255,210,74,0.18);
+      border:1px solid rgba(255,210,74,0.45);
+      color:#ffd24a;
+    }
+    .faceOffStartBtn:hover{ background:rgba(255,210,74,0.28); }
+    .faceOffStartBtn:disabled{ opacity:0.55; cursor:not-allowed; }
+    .faceOffTimer{
+      font-weight:1000;
+      font-size:48px;
+      color:#ffd24a;
+      min-width:120px;
+      text-align:center;
+      font-variant-numeric:tabular-nums;
+      text-shadow:0 0 12px rgba(255,210,74,0.45);
+      transition:color 0.2s ease;
+    }
+    .faceOffTimer.warn{ color:#e76f51; text-shadow:0 0 14px rgba(231,111,81,0.55); }
+    .faceOffTimer.done{
+      color:#e76f51; text-shadow:0 0 16px rgba(231,111,81,0.7);
+      font-size:34px;
+      animation:foDone 600ms ease;
+    }
+    @keyframes foDone{
+      0%{ transform:scale(0.7); opacity:0; }
+      60%{ transform:scale(1.15); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
     select{
       width:100%;
       padding:10px 12px;
@@ -481,6 +521,10 @@
       <div class="popupTop">
         <div class="popupTitle" style="color:#ffd24a;">⚔️ FACE OFF!</div>
         <div class="popupSub">20-second challenge — tap the winner to award +2000</div>
+      </div>
+      <div class="faceOffTimerRow">
+        <button id="faceOffStartTimer" type="button" class="faceOffStartBtn">Start 20s Timer</button>
+        <div id="faceOffTimer" class="faceOffTimer">20</div>
       </div>
       <div class="btnGrid2" style="margin-top:6px;">
         <button id="faceOffWinA" type="button" style="padding:22px 12px; font-size:18px; font-weight:1000;">Team A Wins</button>
@@ -649,6 +693,8 @@
     faceOffOverlay: document.getElementById("faceOffOverlay"),
     faceOffWinA: document.getElementById("faceOffWinA"),
     faceOffWinB: document.getElementById("faceOffWinB"),
+    faceOffStartTimer: document.getElementById("faceOffStartTimer"),
+    faceOffTimer: document.getElementById("faceOffTimer"),
 
     settingsOverlay: document.getElementById("settingsOverlay"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
@@ -1047,14 +1093,59 @@
       els.faceOffOverlay.classList.remove('hidden');
       els.faceOffOverlay.setAttribute('aria-hidden', 'false');
 
+      // Reset timer UI to fresh state every time the picker opens
+      let timerInterval = null;
+      let timerSeconds = 20;
+      els.faceOffTimer.textContent = '20';
+      els.faceOffTimer.classList.remove('warn', 'done');
+      els.faceOffStartTimer.disabled = false;
+      els.faceOffStartTimer.textContent = 'Start 20s Timer';
+
+      function syncPresenterSub(sub){
+        if (currentPopup){
+          currentPopup.sub = sub;
+          broadcastState();
+        }
+      }
+      function startTimer(){
+        if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+        timerSeconds = 20;
+        els.faceOffTimer.textContent = String(timerSeconds);
+        els.faceOffTimer.classList.remove('warn', 'done');
+        els.faceOffStartTimer.disabled = true;
+        els.faceOffStartTimer.textContent = 'Running…';
+        syncPresenterSub(`${timerSeconds}s remaining`);
+        timerInterval = setInterval(() => {
+          timerSeconds -= 1;
+          if (timerSeconds <= 0){
+            clearInterval(timerInterval); timerInterval = null;
+            els.faceOffTimer.textContent = "TIME!";
+            els.faceOffTimer.classList.remove('warn');
+            els.faceOffTimer.classList.add('done');
+            els.faceOffStartTimer.disabled = false;
+            els.faceOffStartTimer.textContent = 'Restart 20s Timer';
+            syncPresenterSub('TIME! — pick the winner');
+            try { playSfx("bankrupt"); } catch (_) {}
+            return;
+          }
+          els.faceOffTimer.textContent = String(timerSeconds);
+          if (timerSeconds <= 5) els.faceOffTimer.classList.add('warn');
+          syncPresenterSub(`${timerSeconds}s remaining`);
+        }, 1000);
+      }
+
+      const onStart = () => startTimer();
       const onA = () => { cleanup(); resolve("A"); };
       const onB = () => { cleanup(); resolve("B"); };
       function cleanup(){
+        if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+        els.faceOffStartTimer.removeEventListener('click', onStart);
         els.faceOffWinA.removeEventListener('click', onA);
         els.faceOffWinB.removeEventListener('click', onB);
         els.faceOffOverlay.classList.add('hidden');
         els.faceOffOverlay.setAttribute('aria-hidden', 'true');
       }
+      els.faceOffStartTimer.addEventListener('click', onStart);
       els.faceOffWinA.addEventListener('click', onA);
       els.faceOffWinB.addEventListener('click', onB);
     });
@@ -1554,6 +1645,10 @@
           } else {
             hidePopup();
           }
+        } else if (popup && els.popupSub){
+          // Same popup kind+title (e.g. face-off countdown) — refresh sub text in place
+          // so the timer ticks down without re-animating the whole popup.
+          els.popupSub.textContent = popup.sub;
         }
       };
     }
