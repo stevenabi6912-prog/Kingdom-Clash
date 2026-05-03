@@ -1525,6 +1525,26 @@
     } catch (_) {}
   }
 
+  // Presenter polling fallback: in case neither BroadcastChannel nor the
+  // storage event fires reliably between the operator and the popup window
+  // (some Safari setups), poll localStorage and apply any newer state.
+  if (isPresentMode){
+    let _lastAppliedTs = 0;
+    setInterval(() => {
+      try {
+        const raw = localStorage.getItem(LS_STATE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data && data.type === 'STATE' && (data.ts || 0) > _lastAppliedTs){
+          _lastAppliedTs = data.ts || 0;
+          if (presenterChannel && presenterChannel.onmessage){
+            presenterChannel.onmessage({ data });
+          }
+        }
+      } catch (_) {}
+    }, 700);
+  }
+
   // Initial render
   applySettingsToUI();
   setMuteUI();
