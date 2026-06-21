@@ -43,7 +43,7 @@
       position:relative;
       display:grid;
       place-items:center;
-      padding:16px;
+      padding:clamp(18px, 2.2vw, 28px) 16px 16px;
       padding-left:max(16px, env(safe-area-inset-left));
       padding-right:max(16px, env(safe-area-inset-right));
       padding-bottom:max(16px, env(safe-area-inset-bottom));
@@ -73,7 +73,7 @@
       position:relative;
       z-index:1;
       width:min(96vw, 1440px);
-      height:min(calc(100svh - 130px), 820px);
+      height:min(calc(100svh - 150px), 820px);
       display:grid;
       place-items:center;
       container-type:size;
@@ -177,20 +177,21 @@
 
     .panel{
       background:var(--panel);
-      padding:clamp(8px, 1.4vw, 16px) clamp(10px, 1.6vw, 18px);
+      padding:clamp(10px, 1.6vw, 20px) clamp(14px, 2vw, 26px);
       display:grid;
-      gap:clamp(6px, 1vw, 14px);
+      gap:clamp(10px, 1.4vw, 22px);
       align-items:center;
-      padding-top:max(clamp(8px, 1.4vw, 16px), env(safe-area-inset-top));
-      padding-bottom:clamp(8px, 1.4vw, 16px);
-      padding-left:max(clamp(10px, 1.6vw, 18px), env(safe-area-inset-left));
-      padding-right:max(clamp(10px, 1.6vw, 18px), env(safe-area-inset-right));
+      padding-top:max(clamp(10px, 1.6vw, 20px), env(safe-area-inset-top));
+      padding-bottom:clamp(12px, 1.8vw, 22px);
+      padding-left:max(clamp(14px, 2vw, 26px), env(safe-area-inset-left));
+      padding-right:max(clamp(14px, 2vw, 26px), env(safe-area-inset-right));
       border-bottom:1px solid rgba(255,255,255,0.08);
     }
-    /* Panel column layouts by team count (controls always last) */
-    .panel.teams-2 { grid-template-columns: 1.4fr 1.4fr 1.2fr; }
-    .panel.teams-3 { grid-template-columns: 1fr 1fr 1fr 1.2fr; }
-    .panel.teams-4 { grid-template-columns: 1fr 1fr 1fr 1fr 1.2fr; }
+    /* Panel column layouts by team count — teams split available space EQUALLY,
+       controls take only what they need so team boxes stay balanced. */
+    .panel.teams-2 { grid-template-columns: 1fr 1fr auto; }
+    .panel.teams-3 { grid-template-columns: 1fr 1fr 1fr auto; }
+    .panel.teams-4 { grid-template-columns: 1fr 1fr 1fr 1fr auto; }
     /* Hide team boxes that aren't in the current count */
     .panel.teams-2 .teamBox-C,
     .panel.teams-2 .teamBox-D,
@@ -199,8 +200,8 @@
     .team{
       display:grid;
       grid-template-columns:1fr auto;
-      gap:clamp(6px, 1vw, 12px);
-      padding:clamp(6px, 1vw, 12px) clamp(8px, 1.2vw, 14px);
+      gap:clamp(10px, 1.4vw, 18px);
+      padding:clamp(8px, 1.2vw, 16px) clamp(12px, 1.6vw, 20px);
       border-radius:14px;
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
@@ -220,7 +221,12 @@
       color:var(--accent);
     }
 
-    .controls{ display:grid; gap:8px; justify-items:end; }
+    .controls{
+      display:grid;
+      gap:8px;
+      justify-items:end;
+      min-width:clamp(140px, 16vw, 220px);
+    }
 
     button{
       border:none;
@@ -260,9 +266,9 @@
       .panel.teams-2,
       .panel.teams-3,
       .panel.teams-4 { grid-template-columns:1fr; }
-      .controls{ justify-items:stretch; }
+      .controls{ justify-items:stretch; min-width:0; }
       .log{ text-align:left; }
-      .grid-wrap{ height:min(calc(100svh - 280px), 640px); }
+      .grid-wrap{ height:min(calc(100svh - 300px), 640px); }
     }
 
     /* Generic picker button grid — auto-fits 2..4 buttons */
