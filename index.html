@@ -1348,6 +1348,29 @@
     rampGain(audio.winGain, 1, musicFadeMs);
   }
 
+  // Synthesized clock tick for the face-off countdown's final seconds.
+  // Uses the existing AudioContext + sfx gain so it follows volume/mute settings;
+  // alternates pitch per second for a classic tick-tock feel. No file needed.
+  function playTick(second){
+    try {
+      if (!audio.ready || !audio.ctx || muted) return;
+      const ctx = audio.ctx;
+      if (ctx.state !== "running") return;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(second % 2 ? 1150 : 900, t); // tick… tock…
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      osc.connect(g);
+      g.connect(audio.sfxGain);
+      osc.start(t);
+      osc.stop(t + 0.09);
+    } catch (_) {}
+  }
+
   async function playSfx(key){
     try { await ensureAudioAwake(); } catch (_) {}
     if (muted) return;
@@ -1637,6 +1660,7 @@
           if (timerSeconds <= 5){
             els.faceOffTimer.classList.add('warn');
             els.faceOffOverlay.classList.add('heartbeat'); // red pulse in the last 5s
+            playTick(timerSeconds); // tick-tock under the final five
           }
           syncPresenterCountdown(timerSeconds, timerSeconds <= 5, false);
           pulseTimer(timerSeconds <= 5); // bigger pop in the warn zone for tension
