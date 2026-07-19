@@ -798,8 +798,8 @@
 
   const moneyValues = [100, 200, 500, 1000];
 
-  const relSfx = { coin: 0.90, bankrupt: 1.00, double: 0.95 };
-  const sfxFiles = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3" };
+  const relSfx = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00 };
+  const sfxFiles = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3" };
 
   const popupAutoCloseMs = 3000;
   const tileFlipMs = 420;
@@ -872,8 +872,8 @@
     winSrc:null,
     buffers:{},
     keepAliveOsc:null,
-    htmlPool:{ coin:[], bankrupt:[], double:[] },
-    htmlIdx:{ coin:0, bankrupt:0, double:0 }
+    htmlPool:{ coin:[], bankrupt:[], double:[], steal:[] },
+    htmlIdx:{ coin:0, bankrupt:0, double:0, steal:0 }
   };
 
   const els = {
@@ -1517,6 +1517,7 @@
     if (label === "STEAL"){
       // Active team may steal from any other team, or decline. Always show the picker
       // (even at 2 teams — the whole point of steal is the "should I?" choice).
+      try { await playSfx("steal"); } catch (_) {}
       showPopup("steal", "🥷 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
       const targetKey = await pickStealTarget();
 
