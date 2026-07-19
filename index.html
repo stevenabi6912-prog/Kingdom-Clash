@@ -798,8 +798,8 @@
 
   const moneyValues = [100, 200, 500, 1000];
 
-  const relSfx    = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00, faceoff: 1.00, buzzer: 1.00 };
-  const sfxFiles  = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3", faceoff: "faceoff.mp3", buzzer: "buzzer.mp3" };
+  const relSfx    = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00, faceoff: 1.00, buzzer: 1.00, pickagain: 1.00 };
+  const sfxFiles  = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3", faceoff: "faceoff.mp3", buzzer: "buzzer.mp3", pickagain: "pickagain.mp3" };
 
   const popupAutoCloseMs = 3000;
   const tileFlipMs = 420;
@@ -872,8 +872,8 @@
     winSrc:null,
     buffers:{},
     keepAliveOsc:null,
-    htmlPool:{ coin:[], bankrupt:[], double:[], steal:[], faceoff:[], buzzer:[] },
-    htmlIdx:{ coin:0, bankrupt:0, double:0, steal:0, faceoff:0, buzzer:0 }
+    htmlPool:{ coin:[], bankrupt:[], double:[], steal:[], faceoff:[], buzzer:[], pickagain:[] },
+    htmlIdx:{ coin:0, bankrupt:0, double:0, steal:0, faceoff:0, buzzer:0, pickagain:0 }
   };
 
   const els = {
@@ -1509,7 +1509,7 @@
       scores[activeTeam] += 1000;
       updateScores();
       setLog(`${teamName} got +1000 and picks again! 🎉`);
-      await playSfx("coin");
+      try { await playSfx("pickagain"); } catch (_) {}
       showPopup("money", "+1000 — Pick Again!", "Same team goes again", "var(--accent)", "1000", true);
       return true;
     }
