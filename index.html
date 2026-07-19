@@ -407,12 +407,32 @@
     .smallNote{ opacity:0.86; font-size:13px; line-height:1.3; }
 
     /* POPUP */
-    .popupTop{ display:grid; gap:4px; justify-items:center; margin-bottom:10px; }
-    .popupTitle{ font-weight:1000; font-size:clamp(30px, 4vw, 54px); letter-spacing:0.5px; text-align:center; }
-    .popupSub{ opacity:0.9; font-weight:900; text-align:center; }
+    /* Outcome popup card is wider than the default 560px so big reveals read from
+       across the room. Title wraps at word boundaries instead of clipping. */
+    #overlay .card{ width:min(94vw, 780px); }
+    .popupTop{ display:grid; gap:6px; justify-items:center; margin-bottom:10px; }
+    .popupTitle{
+      font-weight:1000;
+      font-size:clamp(34px, 5.5vw, 72px);
+      letter-spacing:0.5px;
+      text-align:center;
+      line-height:1.1;
+      max-width:100%;
+      overflow-wrap:break-word;
+    }
+    .popupSub{
+      opacity:0.9;
+      font-weight:900;
+      text-align:center;
+      font-size:clamp(15px, 2.2vw, 26px);
+      max-width:100%;
+      overflow-wrap:break-word;
+    }
     .popupAnim{
       position:relative;
-      height:260px;
+      /* Scale with the viewport — the old fixed 260px looked tiny on TVs and
+         could crop tall content on small screens */
+      height:clamp(220px, 42svh, 460px);
       border-radius:18px;
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.10);
@@ -421,12 +441,23 @@
       place-items:center;
     }
     .popupImg{
-      width:min(82%, 340px);
+      width:min(88%, 460px);
+      /* svh (not %) — a % here hits the auto-sized-grid-track circular dependency
+         and silently fails to constrain, letting tall images crop against
+         popupAnim's overflow:hidden. 38svh ≈ 90% of popupAnim's 42svh height. */
+      max-height:min(38svh, 420px);
       height:auto;
       object-fit:contain;
       filter:drop-shadow(0 14px 18px rgba(0,0,0,0.45));
       animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards;
       transform-origin:50% 65%;
+      opacity:0;
+    }
+    /* Emoji fallback (⚔️ 🥷 💥 …) scales with the popup body instead of fixed 96px */
+    .popupEmoji{
+      font-size:clamp(110px, 30svh, 220px);
+      line-height:1;
+      animation:imgPop 720ms cubic-bezier(.2,.85,.2,1) forwards;
       opacity:0;
     }
     @keyframes imgPop{
@@ -846,7 +877,7 @@
   const relSfx    = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00, faceoff: 1.00, buzzer: 1.00, pickagain: 1.00 };
   const sfxFiles  = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3", faceoff: "face off.mp3", buzzer: "buzzer.mp3", pickagain: "pick again.mp3" };
 
-  const popupAutoCloseMs = 3000;
+  const popupAutoCloseMs = 2500;
   const tileFlipMs = 420;
   const musicFadeMs = 700;
 
@@ -1384,7 +1415,7 @@
       els.popupAnim.appendChild(im);
     } else {
       const fallback = document.createElement("div");
-      fallback.style.fontSize = "96px";
+      fallback.className = "popupEmoji";
       fallback.textContent = imageKey === "STEAL" ? "🥷"
                            : imageKey === "BANKRUPT" ? "💥"
                            : imageKey === "FACE_OFF" ? "⚔️"
