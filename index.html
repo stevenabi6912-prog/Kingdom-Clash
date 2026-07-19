@@ -181,6 +181,31 @@
       font-weight:1000;
     }
 
+    /* Emoji-based tile reveals (⚔️ FACE OFF, 🐉 STEAL) — properly centered column
+       so the label can't sag into a bottom-left ragged wrap */
+    .tileEmojiBox{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:100%;
+      box-sizing:border-box;
+      padding:4%;
+      gap:2px;
+      text-align:center;
+    }
+    .tileEmojiIcon{
+      font-size:1.5em;
+      line-height:1;
+    }
+    .tileEmojiLabel{
+      font-size:0.55em;
+      font-weight:1000;
+      line-height:1.05;
+      letter-spacing:0.5px;
+    }
+
     .panel{
       flex:0 0 auto; /* fixed-size row in the body flex — .stage below takes the rest */
       background:var(--panel);
@@ -453,7 +478,7 @@
       transform-origin:50% 65%;
       opacity:0;
     }
-    /* Emoji fallback (⚔️ 🥷 💥 …) scales with the popup body instead of fixed 96px */
+    /* Emoji fallback (⚔️ 🐉 💥 …) scales with the popup body instead of fixed 96px */
     .popupEmoji{
       font-size:clamp(110px, 30svh, 220px);
       line-height:1;
@@ -827,7 +852,7 @@
   <div id="stealOverlay" class="overlay hidden" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true">
       <div class="popupTop">
-        <div class="popupTitle" style="color:#b794f4;">🥷 STEAL!</div>
+        <div class="popupTitle" style="color:#b794f4;">🐉 STEAL!</div>
         <div class="popupSub" id="stealPickerSub">Pick a team to steal from — or skip</div>
       </div>
       <div id="stealPickerButtons" class="pickerBtnGrid" style="margin-top:6px;"></div>
@@ -890,7 +915,7 @@
             </select>
           </label>
           <label style="display:grid; gap:4px;">
-            <span class="smallNote">🥷 Steal</span>
+            <span class="smallNote">🐉 Steal</span>
             <select id="swapCountSelect">
               <option value="0">0</option>
               <option value="1">1</option>
@@ -1458,10 +1483,10 @@
       return `<div class="pickAgainBox">${imgHtml}<div class="pickAgainLabel">Pick Again!</div></div>`;
     }
     if (label === "STEAL"){
-      return `<div style="font-size:1.6em; line-height:1;">🥷</div><div style="color:#b794f4; font-size:0.7em; font-weight:1000; margin-top:4px;">STEAL</div>`;
+      return `<div class="tileEmojiBox"><div class="tileEmojiIcon">🐉</div><div class="tileEmojiLabel" style="color:#b794f4;">STEAL</div></div>`;
     }
     if (label === "FACE_OFF"){
-      return `<div style="font-size:1.6em; line-height:1;">⚔️</div><div style="color:#ffd24a; font-size:0.7em; font-weight:1000; margin-top:4px;">FACE OFF</div>`;
+      return `<div class="tileEmojiBox"><div class="tileEmojiIcon">⚔️</div><div class="tileEmojiLabel" style="color:#ffd24a;">FACE OFF</div></div>`;
     }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
@@ -1520,7 +1545,7 @@
     } else {
       const fallback = document.createElement("div");
       fallback.className = "popupEmoji";
-      fallback.textContent = imageKey === "STEAL" ? "🥷"
+      fallback.textContent = imageKey === "STEAL" ? "🐉"
                            : imageKey === "BANKRUPT" ? "💥"
                            : imageKey === "FACE_OFF" ? "⚔️"
                            : "⭐";
@@ -1708,13 +1733,13 @@
       // Active team may steal from any other team, or decline. Always show the picker
       // (even at 2 teams — the whole point of steal is the "should I?" choice).
       try { await playSfx("steal"); } catch (_) {}
-      showPopup("steal", "🥷 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
+      showPopup("steal", "🐉 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
       const targetKey = await pickStealTarget();
 
       if (targetKey === null){
         // Declined — no score change.
         setLog(`${teamName} chose NOT to steal.`);
-        showPopup("steal", "🥷 STEAL!", `${teamName} passed on the steal`, "#b794f4", "STEAL", true);
+        showPopup("steal", "🐉 STEAL!", `${teamName} passed on the steal`, "#b794f4", "STEAL", true);
         return false;
       }
 
@@ -1727,9 +1752,9 @@
       scores[activeTeam] = scores[targetKey];
       scores[targetKey] = tmp;
       updateScores();
-      setLog(`🥷 ${aName} stole from ${bName}! (${aName} ↔ ${bName})`);
+      setLog(`🐉 ${aName} stole from ${bName}! (${aName} ↔ ${bName})`);
       try { await playSfx("bankrupt"); } catch (_) {}
-      showPopup("steal", "🥷 STEAL!", `${aName} stole from ${bName}!`, "#b794f4", "STEAL", true);
+      showPopup("steal", "🐉 STEAL!", `${aName} stole from ${bName}!`, "#b794f4", "STEAL", true);
       return false;
     }
 
