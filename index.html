@@ -647,7 +647,9 @@
       left:0;
       background:linear-gradient(105deg, transparent, rgba(255,255,255,0.15), transparent);
       transform:translateX(-240%) rotate(12deg);
-      animation:shimmer 9s linear infinite;
+      /* Per-tile random duration + delay (set in renderGrid) so sweeps never
+         form a marching pattern — every tile drifts on its own clock */
+      animation:shimmer var(--shimmer-dur, 9s) linear infinite;
       animation-delay:var(--shimmer-delay, 0s);
       pointer-events:none;
     }
@@ -1416,7 +1418,10 @@
       const tile = document.createElement("div");
       tile.className = "tile" + (cell.revealed ? " revealed" : "");
       tile.dataset.idx = idx;
-      tile.style.setProperty("--shimmer-delay", ((idx * 1.7) % 9).toFixed(2) + "s");
+      // Random delay AND duration per tile — differing cycle lengths mean tiles
+      // continuously drift out of phase instead of repeating a fixed pattern
+      tile.style.setProperty("--shimmer-delay", (Math.random() * 9).toFixed(2) + "s");
+      tile.style.setProperty("--shimmer-dur", (7 + Math.random() * 6).toFixed(2) + "s");
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
       els.grid.appendChild(tile);
     });
@@ -1434,7 +1439,8 @@
       const tile = document.createElement("div");
       tile.className = "tile";
       tile.dataset.idx = i;
-      tile.style.setProperty("--shimmer-delay", ((i * 1.7) % 9).toFixed(2) + "s");
+      tile.style.setProperty("--shimmer-delay", (Math.random() * 9).toFixed(2) + "s");
+      tile.style.setProperty("--shimmer-dur", (7 + Math.random() * 6).toFixed(2) + "s");
       tile.textContent = String(i + 1);
       els.grid.appendChild(tile);
     }
