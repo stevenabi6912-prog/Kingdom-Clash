@@ -403,11 +403,21 @@
       100%{ transform:translate(var(--x), calc(var(--y) - 110px)) scale(1.35); opacity:0; }
     }
 
-    /* SWAP POPUP */
-    .overlay.swap .card{
+    /* STEAL POPUP */
+    .overlay.steal .card{
       border-color:rgba(183,148,244,0.45);
       box-shadow:0 0 50px rgba(183,148,244,0.2), 0 20px 70px rgba(0,0,0,0.55);
     }
+    /* Skip button used in the steal picker — visually softer than the team buttons */
+    .pickerSkipBtn{
+      padding:14px 12px;
+      font-size:15px;
+      font-weight:900;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.22);
+      color:rgba(255,255,255,0.82);
+    }
+    .pickerSkipBtn:hover{ background:rgba(255,255,255,0.12); }
 
     /* WINNER POPUP */
     .overlay.winner .card{
@@ -652,14 +662,15 @@
     </div>
   </div>
 
-  <!-- SWAP TARGET PICKER (operator only, used when 3+ teams) -->
-  <div id="swapOverlay" class="overlay hidden" aria-hidden="true">
+  <!-- STEAL TARGET PICKER (operator only) — active team picks a target or skips -->
+  <div id="stealOverlay" class="overlay hidden" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true">
       <div class="popupTop">
-        <div class="popupTitle" style="color:#b794f4;">🔄 SWAP!</div>
-        <div class="popupSub" id="swapPickerSub">Pick which team to swap scores with</div>
+        <div class="popupTitle" style="color:#b794f4;">🥷 STEAL!</div>
+        <div class="popupSub" id="stealPickerSub">Pick a team to steal from — or skip</div>
       </div>
-      <div id="swapPickerButtons" class="pickerBtnGrid" style="margin-top:6px;"></div>
+      <div id="stealPickerButtons" class="pickerBtnGrid" style="margin-top:6px;"></div>
+      <button id="stealSkipBtn" class="pickerSkipBtn" type="button">🚫 Skip — Don't Steal</button>
     </div>
   </div>
 
@@ -718,7 +729,7 @@
             </select>
           </label>
           <label style="display:grid; gap:4px;">
-            <span class="smallNote">🔄 Swap</span>
+            <span class="smallNote">🥷 Steal</span>
             <select id="swapCountSelect">
               <option value="0">0</option>
               <option value="1">1</option>
@@ -800,7 +811,7 @@
 
   const outcomeImages = {
     "100":"100.png","200":"200.png","500":"500.png","1000":"1000.png",
-    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png","SWAP":"swap.png"
+    "BANKRUPT":"bankrupt.png","x2":"x2.png","WINNER":"winner.png"
   };
 
   // ======== PRESENTER ========
@@ -904,9 +915,10 @@
     faceOffPickerButtons: document.getElementById("faceOffPickerButtons"),
     faceOffStartTimer: document.getElementById("faceOffStartTimer"),
     faceOffTimer: document.getElementById("faceOffTimer"),
-    swapOverlay: document.getElementById("swapOverlay"),
-    swapPickerSub: document.getElementById("swapPickerSub"),
-    swapPickerButtons: document.getElementById("swapPickerButtons"),
+    stealOverlay: document.getElementById("stealOverlay"),
+    stealPickerSub: document.getElementById("stealPickerSub"),
+    stealPickerButtons: document.getElementById("stealPickerButtons"),
+    stealSkipBtn: document.getElementById("stealSkipBtn"),
 
     settingsOverlay: document.getElementById("settingsOverlay"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
@@ -1195,7 +1207,7 @@
     for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
     for (let i = 0; i < dCount; i++) deck.push("x2");
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
-    for (let i = 0; i < sCount; i++) deck.push("SWAP");
+    for (let i = 0; i < sCount; i++) deck.push("STEAL");
     for (let i = 0; i < fCount; i++) deck.push("FACE_OFF");
     deck.push("1000"); // guaranteed high-value tile
     while (deck.length < cellCount){
@@ -1266,8 +1278,8 @@
         : `<div class="pickAgainFallback">1000</div>`;
       return `<div class="pickAgainBox">${imgHtml}<div class="pickAgainLabel">Pick Again!</div></div>`;
     }
-    if (label === "SWAP"){
-      return imgTag("swap.png", "SWAP");
+    if (label === "STEAL"){
+      return `<div style="font-size:1.6em; line-height:1;">🥷</div><div style="color:#b794f4; font-size:0.7em; font-weight:1000; margin-top:4px;">STEAL</div>`;
     }
     if (label === "FACE_OFF"){
       return `<div style="font-size:1.6em; line-height:1;">⚔️</div><div style="color:#ffd24a; font-size:0.7em; font-weight:1000; margin-top:4px;">FACE OFF</div>`;
@@ -1310,7 +1322,7 @@
     els.popupAnim.innerHTML = "";
 
     els.overlay.classList.toggle("winner", kind === "winner");
-    els.overlay.classList.toggle("swap", kind === "swap");
+    els.overlay.classList.toggle("steal", kind === "steal");
     els.overlay.classList.remove("hidden");
     els.overlay.setAttribute("aria-hidden", "false");
 
@@ -1328,7 +1340,7 @@
     } else {
       const fallback = document.createElement("div");
       fallback.style.fontSize = "96px";
-      fallback.textContent = imageKey === "SWAP" ? "🔄"
+      fallback.textContent = imageKey === "STEAL" ? "🥷"
                            : imageKey === "BANKRUPT" ? "💥"
                            : imageKey === "FACE_OFF" ? "⚔️"
                            : "⭐";
@@ -1345,7 +1357,7 @@
     broadcastState();
     if (!isPresentMode) return;
     els.overlay.classList.add("hidden");
-    els.overlay.classList.remove("winner", "swap");
+    els.overlay.classList.remove("winner", "steal");
     els.overlay.setAttribute("aria-hidden", "true");
   }
 
@@ -1443,28 +1455,32 @@
     });
   }
 
-  // SWAP target picker — used only when there are 3+ teams.
-  // Resolves with the key (B/C/D) of the team the active team wants to swap with.
-  function pickSwapTarget(){
+  // STEAL target picker — active team picks another team to swap scores with,
+  // or Skip to decline. Resolves with the target team key ("A".."D") or null on skip.
+  function pickStealTarget(){
     return new Promise((resolve) => {
       if (isPresentMode){ resolve(nextTeam(activeTeam)); return; }
       const others = activeTeamKeys().filter(k => k !== activeTeam);
-      els.swapPickerSub.textContent = `${getTeamName(activeTeam)} — pick a team to swap scores with`;
-      els.swapPickerButtons.innerHTML = '';
+      els.stealPickerSub.textContent = `${getTeamName(activeTeam)} — pick a team to steal from, or skip`;
+      els.stealPickerButtons.innerHTML = '';
+
+      const onSkip = () => { cleanup(); resolve(null); };
       function cleanup(){
-        els.swapPickerButtons.innerHTML = '';
-        els.swapOverlay.classList.add('hidden');
-        els.swapOverlay.setAttribute('aria-hidden', 'true');
+        els.stealPickerButtons.innerHTML = '';
+        els.stealSkipBtn.removeEventListener('click', onSkip);
+        els.stealOverlay.classList.add('hidden');
+        els.stealOverlay.setAttribute('aria-hidden', 'true');
       }
       for (const k of others){
         const b = document.createElement('button');
         b.type = 'button';
-        b.textContent = `Swap with ${getTeamName(k)}`;
+        b.textContent = `Steal from ${getTeamName(k)}`;
         b.addEventListener('click', () => { cleanup(); resolve(k); });
-        els.swapPickerButtons.appendChild(b);
+        els.stealPickerButtons.appendChild(b);
       }
-      els.swapOverlay.classList.remove('hidden');
-      els.swapOverlay.setAttribute('aria-hidden', 'false');
+      els.stealSkipBtn.addEventListener('click', onSkip);
+      els.stealOverlay.classList.remove('hidden');
+      els.stealOverlay.setAttribute('aria-hidden', 'false');
     });
   }
 
@@ -1498,24 +1514,28 @@
       return true;
     }
 
-    if (label === "SWAP"){
-      // 2 teams → auto swap A↔B. 3+ teams → let active team pick who to swap with.
-      let targetKey;
-      if (teamCount === 2){
-        targetKey = nextTeam(activeTeam);
-      } else {
-        showPopup("swap", "🔄 SWAP!", "Active team is picking who to swap with…", "#b794f4", "SWAP", false);
-        targetKey = await pickSwapTarget();
+    if (label === "STEAL"){
+      // Active team may steal from any other team, or decline. Always show the picker
+      // (even at 2 teams — the whole point of steal is the "should I?" choice).
+      showPopup("steal", "🥷 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
+      const targetKey = await pickStealTarget();
+
+      if (targetKey === null){
+        // Declined — no score change.
+        setLog(`${teamName} chose NOT to steal.`);
+        showPopup("steal", "🥷 STEAL!", `${teamName} passed on the steal`, "#b794f4", "STEAL", true);
+        return false;
       }
+
       const aName = teamName;
       const bName = getTeamName(targetKey);
       const tmp = scores[activeTeam];
       scores[activeTeam] = scores[targetKey];
       scores[targetKey] = tmp;
       updateScores();
-      setLog(`🔄 Scores swapped! ${aName} ↔ ${bName}`);
+      setLog(`🥷 ${aName} stole from ${bName}! (${aName} ↔ ${bName})`);
       try { await playSfx("bankrupt"); } catch (_) {}
-      showPopup("swap", "🔄 SWAP!", `${aName} ↔ ${bName} — scores exchanged`, "#b794f4", "SWAP", true);
+      showPopup("steal", "🥷 STEAL!", `${aName} stole from ${bName}!`, "#b794f4", "STEAL", true);
       return false;
     }
 
