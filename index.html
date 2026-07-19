@@ -1466,10 +1466,13 @@
       const tile = document.createElement("div");
       tile.className = "tile" + (cell.revealed ? " revealed" : "");
       tile.dataset.idx = idx;
-      // Random delay AND duration per tile — differing cycle lengths mean tiles
-      // continuously drift out of phase instead of repeating a fixed pattern
-      tile.style.setProperty("--shimmer-delay", (Math.random() * 9).toFixed(2) + "s");
-      tile.style.setProperty("--shimmer-dur", (7 + Math.random() * 6).toFixed(2) + "s");
+      // Random duration per tile + NEGATIVE random delay: a negative delay starts the
+      // animation already mid-cycle at a random phase, so tiles shimmer organically from
+      // the first frame instead of all waiting out a quiet period after each render.
+      // Differing cycle lengths keep them drifting apart forever.
+      const shimmerDur = 7 + Math.random() * 6;
+      tile.style.setProperty("--shimmer-dur", shimmerDur.toFixed(2) + "s");
+      tile.style.setProperty("--shimmer-delay", (-Math.random() * shimmerDur).toFixed(2) + "s");
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
       els.grid.appendChild(tile);
     });
@@ -1487,8 +1490,9 @@
       const tile = document.createElement("div");
       tile.className = "tile";
       tile.dataset.idx = i;
-      tile.style.setProperty("--shimmer-delay", (Math.random() * 9).toFixed(2) + "s");
-      tile.style.setProperty("--shimmer-dur", (7 + Math.random() * 6).toFixed(2) + "s");
+      const phDur = 7 + Math.random() * 6;
+      tile.style.setProperty("--shimmer-dur", phDur.toFixed(2) + "s");
+      tile.style.setProperty("--shimmer-delay", (-Math.random() * phDur).toFixed(2) + "s");
       tile.textContent = String(i + 1);
       els.grid.appendChild(tile);
     }
