@@ -581,6 +581,89 @@
     }
     option{ color:#000; }
 
+    /* ===== JUICE / ANIMATIONS ===== */
+
+    /* 3. Active team glow — pulsing gold so the room knows whose turn it is */
+    .team.activeGlow{
+      border-color:rgba(255,210,74,0.6);
+      animation:teamGlow 1.6s ease-in-out infinite;
+    }
+    .ph-team.activeGlow{
+      border-radius:12px;
+      padding:2px 10px;
+      animation:teamGlow 1.6s ease-in-out infinite;
+    }
+    @keyframes teamGlow{
+      0%,100%{ box-shadow:0 0 6px rgba(255,210,74,0.25); }
+      50%{ box-shadow:0 0 20px rgba(255,210,74,0.6); }
+    }
+
+    /* 2 + 9. Flying point numbers (tile → score box, steal transfers, x2 split) */
+    .flyPoint{
+      position:fixed;
+      left:0; top:0;
+      z-index:99998;
+      font-weight:1000;
+      font-size:clamp(20px, 3vw, 42px);
+      color:var(--accent);
+      text-shadow:0 2px 10px rgba(0,0,0,0.65);
+      pointer-events:none;
+      will-change:transform, opacity;
+    }
+
+    /* 4. BANKRUPT quake + red flash */
+    body.bankruptFx .stage,
+    body.bankruptFx .panel{ animation:quake 0.5s ease; }
+    @keyframes quake{
+      0%,100%{ transform:translate(0,0); }
+      20%{ transform:translate(-9px,5px); }
+      40%{ transform:translate(8px,-6px); }
+      60%{ transform:translate(-7px,-4px); }
+      80%{ transform:translate(6px,5px); }
+    }
+    .redFlash{
+      position:fixed; inset:0;
+      z-index:99997;
+      pointer-events:none;
+      background:radial-gradient(circle at 50% 45%, rgba(231,76,60,0.30), rgba(160,30,25,0.55));
+      animation:redFlash 0.65s ease forwards;
+    }
+    @keyframes redFlash{ 0%{opacity:0;} 30%{opacity:1;} 100%{opacity:0;} }
+
+    /* 6. Face-off heartbeat — overlay backdrop pulses red in the last 5 seconds.
+       Applied to the overlay (NOT .card — the card's popIn fill would be lost). */
+    .overlay.heartbeat{ animation:heartbeatBg 1s ease-in-out infinite; }
+    @keyframes heartbeatBg{
+      0%,100%{ background:rgba(0,0,0,0.65); }
+      50%{ background:rgba(140,22,22,0.62); }
+    }
+
+    /* 7. Idle shimmer — light sweep across unrevealed tiles, staggered per tile */
+    .tile:not(.revealed)::after{
+      content:"";
+      position:absolute;
+      top:-60%; bottom:-60%;
+      width:36%;
+      left:0;
+      background:linear-gradient(105deg, transparent, rgba(255,255,255,0.15), transparent);
+      transform:translateX(-240%) rotate(12deg);
+      animation:shimmer 9s linear infinite;
+      animation-delay:var(--shimmer-delay, 0s);
+      pointer-events:none;
+    }
+    @keyframes shimmer{
+      0%{ transform:translateX(-240%) rotate(12deg); }
+      14%{ transform:translateX(440%) rotate(12deg); }
+      100%{ transform:translateX(440%) rotate(12deg); }
+    }
+
+    /* 8. Reveal ripple — neighbors of a flipped tile give a small squeeze */
+    .tile.ripple{ animation:rippleSqueeze 0.42s ease; }
+    @keyframes rippleSqueeze{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(0.955); }
+    }
+
     /* PRESENTER MODE — panel hidden, stage takes the whole viewport minus the HUD */
     body.present-mode{ cursor:none; overflow:hidden; height:100svh; }
     body.present-mode .panel{ display:none !important; }
@@ -1310,7 +1393,19 @@
     if (audio.ready) startBgMusic();
   }
 
+  let _gridSignature = "";
   function renderGrid(){
+    // Skip the DOM rebuild when nothing on the board changed — score/popup broadcasts
+    // arrive in rapid bursts and a full innerHTML wipe would cut tile flip/ripple
+    // animations short before the audience can see them.
+    const sig = boardRows + "x" + boardCols + "|" +
+      board.map(c => (c.revealed ? "1" : "0") + c.label).join(",");
+    if (sig === _gridSignature && els.grid.children.length === board.length){
+      broadcastState();
+      return;
+    }
+    _gridSignature = sig;
+
     els.grid.style.setProperty("--cols", boardCols);
     els.grid.style.setProperty("--rows", boardRows);
     els.grid.style.gridTemplateColumns = `repeat(${boardCols}, 1fr)`;
@@ -1321,6 +1416,7 @@
       const tile = document.createElement("div");
       tile.className = "tile" + (cell.revealed ? " revealed" : "");
       tile.dataset.idx = idx;
+      tile.style.setProperty("--shimmer-delay", ((idx * 1.7) % 9).toFixed(2) + "s");
       tile.innerHTML = cell.revealed ? formatReveal(cell.label) : String(idx + 1);
       els.grid.appendChild(tile);
     });
@@ -1338,6 +1434,7 @@
       const tile = document.createElement("div");
       tile.className = "tile";
       tile.dataset.idx = i;
+      tile.style.setProperty("--shimmer-delay", ((i * 1.7) % 9).toFixed(2) + "s");
       tile.textContent = String(i + 1);
       els.grid.appendChild(tile);
     }
@@ -1399,6 +1496,7 @@
 
     els.overlay.classList.toggle("winner", kind === "winner");
     els.overlay.classList.toggle("steal", kind === "steal");
+    els.overlay.classList.remove("heartbeat"); // fresh popup starts calm
     els.overlay.classList.remove("hidden");
     els.overlay.setAttribute("aria-hidden", "false");
 
@@ -1433,7 +1531,7 @@
     broadcastState();
     if (!isPresentMode) return;
     els.overlay.classList.add("hidden");
-    els.overlay.classList.remove("winner", "steal");
+    els.overlay.classList.remove("winner", "steal", "heartbeat");
     els.overlay.setAttribute("aria-hidden", "true");
   }
 
@@ -1485,6 +1583,7 @@
         timerSeconds = 20;
         els.faceOffTimer.textContent = String(timerSeconds);
         els.faceOffTimer.classList.remove('warn', 'done');
+        els.faceOffOverlay.classList.remove('heartbeat');
         els.faceOffStartTimer.disabled = true;
         els.faceOffStartTimer.textContent = 'Running…';
         syncPresenterCountdown(timerSeconds, false, false);
@@ -1496,6 +1595,7 @@
             els.faceOffTimer.textContent = "TIME!";
             els.faceOffTimer.classList.remove('warn');
             els.faceOffTimer.classList.add('done');
+            els.faceOffOverlay.classList.remove('heartbeat');
             els.faceOffStartTimer.disabled = false;
             els.faceOffStartTimer.textContent = 'Restart 20s Timer';
             syncPresenterCountdown('TIME!', false, true);
@@ -1503,7 +1603,10 @@
             return;
           }
           els.faceOffTimer.textContent = String(timerSeconds);
-          if (timerSeconds <= 5) els.faceOffTimer.classList.add('warn');
+          if (timerSeconds <= 5){
+            els.faceOffTimer.classList.add('warn');
+            els.faceOffOverlay.classList.add('heartbeat'); // red pulse in the last 5s
+          }
           syncPresenterCountdown(timerSeconds, timerSeconds <= 5, false);
           pulseTimer(timerSeconds <= 5); // bigger pop in the warn zone for tension
         }, 1000);
@@ -1514,6 +1617,7 @@
         if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
         els.faceOffStartTimer.removeEventListener('click', onStart);
         els.faceOffPickerButtons.innerHTML = ''; // also drops the per-button click listeners
+        els.faceOffOverlay.classList.remove('heartbeat');
         els.faceOffOverlay.classList.add('hidden');
         els.faceOffOverlay.setAttribute('aria-hidden', 'true');
       }
@@ -1560,10 +1664,12 @@
     });
   }
 
-  async function applyOutcome(label){
+  async function applyOutcome(label, tileIdx){
     const teamName = getTeamName(activeTeam);
+    const tileEl = tileIdx != null ? els.grid.querySelector(`[data-idx="${tileIdx}"]`) : null;
 
     if (label === "BANKRUPT"){
+      bankruptFx();
       scores[activeTeam] = 0;
       updateScores();
       setLog(`${teamName} hit BANKRUPT 😬 Score reset to 0.`);
@@ -1573,6 +1679,7 @@
     }
 
     if (label === "x2"){
+      x2SplitEffect(activeTeam); // ghosts split from the OLD value before the count-up doubles it
       scores[activeTeam] *= 2;
       updateScores();
       setLog(`${teamName} got x2! Score doubled.`);
@@ -1582,6 +1689,7 @@
     }
 
     if (label === "PICK_AGAIN"){
+      flyPoints(tileEl, els[`team${activeTeam}Score`], "+1000");
       scores[activeTeam] += 1000;
       updateScores();
       setLog(`${teamName} got +1000 and picks again! 🎉`);
@@ -1606,6 +1714,9 @@
 
       const aName = teamName;
       const bName = getTeamName(targetKey);
+      // Crossing flyers: each team's OLD score visibly travels to the other box
+      flyPoints(els[`team${targetKey}Score`], els[`team${activeTeam}Score`], String(scores[targetKey]), "#b794f4");
+      flyPoints(els[`team${activeTeam}Score`], els[`team${targetKey}Score`], String(scores[activeTeam]), "#b794f4");
       const tmp = scores[activeTeam];
       scores[activeTeam] = scores[targetKey];
       scores[targetKey] = tmp;
@@ -1622,6 +1733,7 @@
       try { await playSfx("faceoff"); } catch (_) {}
 
       const winner = await pickFaceOffWinner();
+      flyPoints(tileEl, els[`team${winner}Score`], "+2000");
       scores[winner] += 2000;
       updateScores();
       const winnerName = getTeamName(winner);
@@ -1634,6 +1746,7 @@
     const value = Number(label);
     if (!Number.isFinite(value)) return false;
 
+    flyPoints(tileEl, els[`team${activeTeam}Score`], `+${value}`);
     scores[activeTeam] += value;
     updateScores();
     setLog(`${teamName} gained +${value}.`);
@@ -1674,11 +1787,12 @@
     if (tileEl){
       tileEl.classList.add("flipping");
     }
+    rippleNeighbors(idx);
 
     setTimeout(async () => {
       let keepTurn = false;
       try {
-        keepTurn = await applyOutcome(cell.label);
+        keepTurn = await applyOutcome(cell.label, idx);
       } catch (_) {
         // audio or other error — still finish the turn normally
       }
@@ -1722,12 +1836,165 @@
     }, 650);
   }
 
+  // ===== JUICE HELPERS =====
+
+  // 1. Score count-up: tween the displayed number to the target with a punch at the end.
+  // Falls back to an instant set when the tab is hidden (rAF doesn't fire there), and
+  // carries a failsafe timer that snaps to the final value if rAF stalls mid-animation —
+  // the score display must NEVER be left showing a stale number.
+  const scoreAnims = new WeakMap();
+  function animateScoreTo(el, target){
+    if (!el) return;
+    target = Number(target) || 0;
+    const parsed = parseInt(String(el.textContent).replace(/[^\d-]/g, ""), 10);
+    const from = Number.isFinite(parsed) ? parsed : 0;
+    const prev = scoreAnims.get(el);
+    if (prev){ cancelAnimationFrame(prev.raf); clearTimeout(prev.failsafe); scoreAnims.delete(el); }
+    if (from === target){ el.textContent = String(target); return; }
+    if (document.hidden || typeof requestAnimationFrame !== "function"){
+      el.textContent = String(target);
+      return;
+    }
+    const dur = 700;
+    const t0 = performance.now();
+    const state = {};
+    state.failsafe = setTimeout(() => {
+      if (scoreAnims.get(el) === state){
+        cancelAnimationFrame(state.raf);
+        scoreAnims.delete(el);
+        el.textContent = String(target);
+      }
+    }, dur + 500);
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = String(Math.round(from + (target - from) * eased));
+      if (p < 1){
+        state.raf = requestAnimationFrame(step);
+      } else {
+        clearTimeout(state.failsafe);
+        el.textContent = String(target);
+        scoreAnims.delete(el);
+        if (el.animate){
+          el.animate(
+            [{ transform:"scale(1)" }, { transform:"scale(1.22)", offset:0.4 }, { transform:"scale(1)" }],
+            { duration:320, easing:"cubic-bezier(.2,.85,.2,1)" }
+          );
+        }
+      }
+    };
+    state.raf = requestAnimationFrame(step);
+    scoreAnims.set(el, state);
+  }
+
+  // 2. Flying point label from one element to another (tile → score box, box → box for steals)
+  function flyPoints(fromEl, toEl, text, color){
+    if (!fromEl || !toEl || !document.body.animate || document.hidden) return;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    // A mid-flip tile is edge-on (rotateY 90°) and reports ~0 width, but its CENTER
+    // is still correct — so only bail when a rect is truly empty (detached element).
+    if ((!a.width && !a.height) || (!b.width && !b.height)) return;
+    const fly = document.createElement("div");
+    fly.className = "flyPoint";
+    fly.textContent = text;
+    if (color) fly.style.color = color;
+    document.body.appendChild(fly);
+    const fr = fly.getBoundingClientRect();
+    const sx = a.left + a.width/2 - fr.width/2,  sy = a.top + a.height/2 - fr.height/2;
+    const ex = b.left + b.width/2 - fr.width/2,  ey = b.top + b.height/2 - fr.height/2;
+    fly.animate([
+      { transform:`translate(${sx}px, ${sy}px) scale(0.85)`, opacity:0 },
+      { transform:`translate(${sx}px, ${sy - 14}px) scale(1.18)`, opacity:1, offset:0.25 },
+      { transform:`translate(${ex}px, ${ey}px) scale(0.72)`, opacity:0.9 }
+    ], { duration:750, easing:"cubic-bezier(.3,.7,.4,1)" }).onfinish = () => fly.remove();
+    setTimeout(() => fly.remove(), 1400); // failsafe if onfinish never fires (throttled tab)
+  }
+
+  // 9. x2 split: the score number splits into two ghosts that arc out and merge back
+  function x2SplitEffect(teamKey){
+    const el = els[`team${teamKey}Score`];
+    if (!el || !el.animate || document.hidden) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width) return;
+    for (const dir of [-1, 1]){
+      const ghost = document.createElement("div");
+      ghost.className = "flyPoint";
+      ghost.style.color = "var(--good)";
+      ghost.textContent = el.textContent;
+      document.body.appendChild(ghost);
+      const gr = ghost.getBoundingClientRect();
+      const cx = r.left + r.width/2 - gr.width/2;
+      const cy = r.top + r.height/2 - gr.height/2;
+      ghost.animate([
+        { transform:`translate(${cx}px, ${cy}px) scale(1)`, opacity:0.9 },
+        { transform:`translate(${cx + dir*48}px, ${cy - 28}px) scale(1.06)`, opacity:1, offset:0.5 },
+        { transform:`translate(${cx}px, ${cy}px) scale(0.9)`, opacity:0 }
+      ], { duration:650, easing:"ease-in-out" }).onfinish = () => ghost.remove();
+      setTimeout(() => ghost.remove(), 1300); // failsafe if onfinish never fires
+    }
+  }
+
+  // 4. BANKRUPT quake + red flash
+  function bankruptFx(){
+    document.body.classList.remove("bankruptFx");
+    void document.body.offsetWidth; // restart the animation if it just ran
+    document.body.classList.add("bankruptFx");
+    const flash = document.createElement("div");
+    flash.className = "redFlash";
+    document.body.appendChild(flash);
+    setTimeout(() => {
+      flash.remove();
+      document.body.classList.remove("bankruptFx");
+    }, 700);
+  }
+
+  // 8. Ripple: squeeze the 4-neighbors of a flipped tile
+  function rippleNeighbors(idx){
+    const r = Math.floor(idx / boardCols), c = idx % boardCols;
+    const neigh = [];
+    if (c > 0) neigh.push(idx - 1);
+    if (c < boardCols - 1) neigh.push(idx + 1);
+    if (r > 0) neigh.push(idx - boardCols);
+    if (r < boardRows - 1) neigh.push(idx + boardCols);
+    for (const n of neigh){
+      const t = els.grid.querySelector(`[data-idx="${n}"]`);
+      if (!t) continue;
+      t.classList.remove("ripple");
+      void t.offsetWidth;
+      t.classList.add("ripple");
+      setTimeout(() => t.classList.remove("ripple"), 460);
+    }
+  }
+
+  // Presenter/mirror: flip + ripple any tiles that newly became revealed in a state update
+  function animateNewReveals(prevRevealed, newBoard){
+    if (!prevRevealed || !Array.isArray(newBoard)) return;
+    newBoard.forEach((cell, i) => {
+      if (cell && cell.revealed && !prevRevealed[i]){
+        const t = els.grid.querySelector(`[data-idx="${i}"]`);
+        if (t) t.classList.add("flipping");
+        rippleNeighbors(i);
+      }
+    });
+  }
+
+  // 3. Active-team glow on the operator panel boxes
+  function applyActiveGlow(){
+    for (const k of TEAM_KEYS){
+      const box = document.querySelector(`.teamBox-${k}`);
+      if (box) box.classList.toggle("activeGlow", k === activeTeam);
+    }
+  }
+  // ==========================
+
   function updateScores(){
     for (const k of TEAM_KEYS){
       const el = els[`team${k}Score`];
-      if (el) el.textContent = scores[k];
+      if (el) animateScoreTo(el, scores[k]);
     }
     els.activeTeamBadge.textContent = `Active: ${getTeamName(activeTeam)}`;
+    applyActiveGlow();
     broadcastState();
   }
 
@@ -2022,6 +2289,9 @@
 
       applyingRemoteState = true;
       try {
+        const prevRevealed = Array.isArray(board) && Array.isArray(b) && board.length === b.length
+          ? board.map(c => !!(c && c.revealed)) : null;
+
         board       = b;
         scores      = { A: 0, B: 0, C: 0, D: 0, ...(s || {}) };
         activeTeam  = at;
@@ -2044,10 +2314,11 @@
         }
         for (const k of TEAM_KEYS){
           const sEl = els[`team${k}Score`];
-          if (sEl) sEl.textContent = scores[k];
+          if (sEl) animateScoreTo(sEl, scores[k]);
         }
         const activeName = (names[at]) || getTeamName(at);
         els.activeTeamBadge.textContent = `Active: ${activeName}`;
+        applyActiveGlow();
 
         if (started){
           els.startOverlay.classList.add('hidden');
@@ -2058,6 +2329,7 @@
         }
 
         renderGrid();
+        animateNewReveals(prevRevealed, b);
 
         const popupKey = popup ? `${popup.kind}|${popup.title}` : null;
         if (popupKey !== lastPopupKey){
@@ -2099,6 +2371,8 @@
       }
       cd.classList.toggle('warn', !!warn);
       cd.classList.toggle('done', !!done);
+      // 6. Heartbeat: overlay backdrop pulses red during the warn window
+      els.overlay.classList.toggle('heartbeat', !!warn && !done);
       const newText = String(label);
       if (cd.textContent !== newText){
         cd.textContent = newText;
@@ -2125,6 +2399,10 @@
                 boardRows: br, boardCols: bc, winnerShown: ws, popup } = e.data;
         const names = teamNames || { A: legacyA, B: legacyB, C: 'Team C', D: 'Team D' };
 
+        // Remember which tiles were already revealed so we can animate the new ones
+        const prevRevealed = Array.isArray(board) && Array.isArray(b) && board.length === b.length
+          ? board.map(c => !!(c && c.revealed)) : null;
+
         // Mirror state into local variables
         board        = b;
         scores       = { A: 0, B: 0, C: 0, D: 0, ...(s || {}) };
@@ -2145,10 +2423,13 @@
           const phName = els[`phTeam${k}Name`];
           if (phName) phName.textContent = names[k] != null ? names[k] : DEFAULT_TEAM_NAME[k];
           const phScore = els[`phTeam${k}Score`];
-          if (phScore) phScore.textContent = scores[k];
+          if (phScore) animateScoreTo(phScore, scores[k]);
+          const phBox = document.querySelector(`.phTeamBox-${k}`);
+          if (phBox) phBox.classList.toggle('activeGlow', k === at);
         }
 
         renderGrid();
+        animateNewReveals(prevRevealed, b); // flip + ripple freshly revealed tiles for the audience
 
         // Only trigger popup animation when popup actually changes
         const popupKey = popup ? `${popup.kind}|${popup.title}` : null;
@@ -2156,6 +2437,7 @@
           lastPopupKey = popupKey;
           if (popup){
             showPopup(popup.kind, popup.title, popup.sub, popup.color, popup.imageKey, false);
+            if (popup.kind === 'bankrupt') bankruptFx(); // quake + red flash on the big screen too
             // If this popup arrived with a countdown already attached, render it
             if (popup.countdown != null){
               renderPopupCountdown(popup.countdown, popup.countdownWarn, popup.countdownDone);
@@ -2236,20 +2518,30 @@
         if (ts <= _lastAppliedTs) return;
         _lastAppliedTs = ts;
 
-        if (els.phTeamAName)  els.phTeamAName.textContent  = data.teamAName || 'Team A';
-        if (els.phTeamBName)  els.phTeamBName.textContent  = data.teamBName || 'Team B';
-        if (els.phTeamAScore) els.phTeamAScore.textContent = (data.scores && data.scores.A) || 0;
-        if (els.phTeamBScore) els.phTeamBScore.textContent = (data.scores && data.scores.B) || 0;
+        const names = data.teamNames || { A: data.teamAName, B: data.teamBName };
+        for (const k of TEAM_KEYS){
+          const phName = els[`phTeam${k}Name`];
+          if (phName && names[k] != null) phName.textContent = names[k];
+          const phScore = els[`phTeam${k}Score`];
+          if (phScore) animateScoreTo(phScore, (data.scores && data.scores[k]) || 0);
+          const phBox = document.querySelector(`.phTeamBox-${k}`);
+          if (phBox && data.activeTeam) phBox.classList.toggle('activeGlow', k === data.activeTeam);
+        }
 
+        const prevRevealed = Array.isArray(board) && Array.isArray(data.board) && board.length === data.board.length
+          ? board.map(c => !!(c && c.revealed)) : null;
         if (Array.isArray(data.board)) board       = data.board;
-        if (data.scores)               scores      = data.scores;
+        if (data.scores)               scores      = { A:0, B:0, C:0, D:0, ...data.scores };
         if (data.activeTeam)           activeTeam  = data.activeTeam;
         if (data.boardRows)            boardRows   = data.boardRows;
         if (data.boardCols)            boardCols   = data.boardCols;
         if (typeof data.winnerShown === 'boolean') winnerShown = data.winnerShown;
 
         applyingRemoteState = true;
-        try { renderGrid(); } finally { applyingRemoteState = false; }
+        try {
+          renderGrid();
+          animateNewReveals(prevRevealed, board);
+        } finally { applyingRemoteState = false; }
       } catch (_) {}
     }, 500);
   }
