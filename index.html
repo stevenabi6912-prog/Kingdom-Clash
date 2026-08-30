@@ -1773,16 +1773,16 @@
 
       const aName = teamName;
       const bName = getTeamName(targetKey);
-      // Crossing flyers: each team's OLD score visibly travels to the other box
-      flyPoints(els[`team${targetKey}Score`], els[`team${activeTeam}Score`], String(scores[targetKey]), "#b794f4");
-      flyPoints(els[`team${activeTeam}Score`], els[`team${targetKey}Score`], String(scores[activeTeam]), "#b794f4");
-      const tmp = scores[activeTeam];
-      scores[activeTeam] = scores[targetKey];
-      scores[targetKey] = tmp;
+      // Take, don't trade: the victim's points are ADDED to the thief's total
+      // and the victim drops to 0.
+      const stolen = scores[targetKey];
+      flyPoints(els[`team${targetKey}Score`], els[`team${activeTeam}Score`], `+${stolen}`, "#b794f4");
+      scores[activeTeam] += stolen;
+      scores[targetKey] = 0;
       updateScores();
-      setLog(`🐉 ${aName} stole from ${bName}! (${aName} ↔ ${bName})`);
+      setLog(`🐉 ${aName} stole ${stolen} points from ${bName}!`);
       try { await playSfx("bankrupt"); } catch (_) {}
-      showPopup("steal", "🐉 STEAL!", `${aName} stole from ${bName}!`, "#b794f4", "STEAL", true);
+      showPopup("steal", "🐉 STEAL!", `${aName} stole ${stolen} points from ${bName}!`, "#b794f4", "STEAL", true);
       return false;
     }
 
