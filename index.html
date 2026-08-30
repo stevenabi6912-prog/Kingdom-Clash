@@ -1487,9 +1487,14 @@
     const cellCount = boardRows * boardCols;
     board = buildDeck(cellCount).map(label => ({ label, revealed:false }));
     winnerShown = false;
+    // A new board is a fresh game — nothing carries over.
+    scores = { A: 0, B: 0, C: 0, D: 0 };
+    shields = { A: 0, B: 0, C: 0, D: 0 };
+    activeTeam = "A";
     hidePopup();
     renderGrid();
     clearUndo();
+    updateScores(); // refresh score displays, shield badges, and active-team glow
     setLog("New board ready. Ask a question 😄");
     if (audio.ready) startBgMusic();
   }
