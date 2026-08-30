@@ -267,6 +267,25 @@
       font-variant-numeric:tabular-nums;
     }
 
+    /* 🛡️ Shield badge — sits in the top-right corner of a team box while the
+       team holds protection against the next BANKRUPT or steal */
+    .team{ position:relative; }
+    .shieldBadge{
+      position:absolute;
+      top:4px;
+      right:8px;
+      font-size:clamp(13px, 1.5vw, 22px);
+      line-height:1;
+      filter:drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+    }
+    .shieldBadge:empty{ display:none; }
+    /* Presenter HUD variant flows inline after the score instead of absolute */
+    .shieldBadge.phShield{
+      position:static;
+      font-size:clamp(14px, 1.8vw, 26px);
+      margin-left:4px;
+    }
+
     .controls{
       display:grid;
       gap:8px;
@@ -743,6 +762,7 @@
         <h2 contenteditable="true" id="teamAName">Team A</h2>
       </div>
       <div class="score" id="teamAScore">0</div>
+      <div class="shieldBadge" id="teamAShield"></div>
     </div>
 
     <div class="team teamBox-B">
@@ -750,6 +770,7 @@
         <h2 contenteditable="true" id="teamBName">Team B</h2>
       </div>
       <div class="score" id="teamBScore">0</div>
+      <div class="shieldBadge" id="teamBShield"></div>
     </div>
 
     <div class="team teamBox-C">
@@ -757,6 +778,7 @@
         <h2 contenteditable="true" id="teamCName">Team C</h2>
       </div>
       <div class="score" id="teamCScore">0</div>
+      <div class="shieldBadge" id="teamCShield"></div>
     </div>
 
     <div class="team teamBox-D">
@@ -764,6 +786,7 @@
         <h2 contenteditable="true" id="teamDName">Team D</h2>
       </div>
       <div class="score" id="teamDScore">0</div>
+      <div class="shieldBadge" id="teamDShield"></div>
     </div>
 
     <div class="controls">
@@ -788,21 +811,25 @@
       <div class="ph-team phTeamBox-A">
         <div class="ph-name" id="phTeamAName">Team A</div>
         <div class="ph-score" id="phTeamAScore">0</div>
+        <span class="shieldBadge phShield" id="phTeamAShield"></span>
       </div>
       <div class="ph-vs ph-vs-AB">⚔️</div>
       <div class="ph-team phTeamBox-B">
         <div class="ph-name" id="phTeamBName">Team B</div>
         <div class="ph-score" id="phTeamBScore">0</div>
+        <span class="shieldBadge phShield" id="phTeamBShield"></span>
       </div>
       <div class="ph-vs ph-vs-BC">⚔️</div>
       <div class="ph-team phTeamBox-C">
         <div class="ph-name" id="phTeamCName">Team C</div>
         <div class="ph-score" id="phTeamCScore">0</div>
+        <span class="shieldBadge phShield" id="phTeamCShield"></span>
       </div>
       <div class="ph-vs ph-vs-CD">⚔️</div>
       <div class="ph-team phTeamBox-D">
         <div class="ph-name" id="phTeamDName">Team D</div>
         <div class="ph-score" id="phTeamDScore">0</div>
+        <span class="shieldBadge phShield" id="phTeamDShield"></span>
       </div>
     </div>
   </div>
@@ -932,6 +959,15 @@
               <option value="3">3</option>
             </select>
           </label>
+          <label style="display:grid; gap:4px;">
+            <span class="smallNote">🛡️ Shield</span>
+            <select id="shieldCountSelect">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
         </div>
         <div class="smallNote" style="opacity:.78;">Changes apply on the next board.</div>
       </div>
@@ -1020,6 +1056,7 @@
     doubleCount: 2,
     swapCount: 1,
     faceOffCount: 1,
+    shieldCount: 1,
     teamCount: 2,
   };
   let settings = loadSettings();
@@ -1029,6 +1066,7 @@
 
   let activeTeam = "A";
   let scores = { A: 0, B: 0, C: 0, D: 0 };
+  let shields = { A: 0, B: 0, C: 0, D: 0 }; // 🛡️ per-team protection charges
   let teamCount = settings.teamCount; // mirror of settings.teamCount; updated on Apply
   let board = [];
   let muted = false;
@@ -1073,6 +1111,10 @@
     teamBScore: document.getElementById("teamBScore"),
     teamCScore: document.getElementById("teamCScore"),
     teamDScore: document.getElementById("teamDScore"),
+    teamAShield: document.getElementById("teamAShield"),
+    teamBShield: document.getElementById("teamBShield"),
+    teamCShield: document.getElementById("teamCShield"),
+    teamDShield: document.getElementById("teamDShield"),
     activeTeamBadge: document.getElementById("activeTeamBadge"),
     toggleTeamBtn: document.getElementById("toggleTeamBtn"),
     undoBtn: document.getElementById("undoBtn"),
@@ -1092,6 +1134,10 @@
     phTeamCScore: document.getElementById("phTeamCScore"),
     phTeamDName: document.getElementById("phTeamDName"),
     phTeamDScore: document.getElementById("phTeamDScore"),
+    phTeamAShield: document.getElementById("phTeamAShield"),
+    phTeamBShield: document.getElementById("phTeamBShield"),
+    phTeamCShield: document.getElementById("phTeamCShield"),
+    phTeamDShield: document.getElementById("phTeamDShield"),
 
     overlay: document.getElementById("overlay"),
     popupTitle: document.getElementById("popupTitle"),
@@ -1115,6 +1161,7 @@
     doubleCountSelect: document.getElementById("doubleCountSelect"),
     swapCountSelect: document.getElementById("swapCountSelect"),
     faceOffCountSelect: document.getElementById("faceOffCountSelect"),
+    shieldCountSelect: document.getElementById("shieldCountSelect"),
     applySettingsBtn: document.getElementById("applySettingsBtn"),
     boardSizeVal: document.getElementById("boardSizeVal"),
     musicVol: document.getElementById("musicVol"),
@@ -1166,6 +1213,7 @@
         doubleCount:   clampInt(obj.doubleCount,   defaultSettings.doubleCount),
         swapCount:     clampInt(obj.swapCount,     defaultSettings.swapCount),
         faceOffCount:  clampInt(obj.faceOffCount,  defaultSettings.faceOffCount),
+        shieldCount:   clampInt(obj.shieldCount,   defaultSettings.shieldCount),
         teamCount:     clampTeamCount(obj.teamCount),
       };
     } catch (_) { return { ...defaultSettings }; }
@@ -1185,6 +1233,7 @@
     if (els.doubleCountSelect)   els.doubleCountSelect.value   = String(settings.doubleCount);
     if (els.swapCountSelect)     els.swapCountSelect.value     = String(settings.swapCount);
     if (els.faceOffCountSelect)  els.faceOffCountSelect.value  = String(settings.faceOffCount);
+    if (els.shieldCountSelect)   els.shieldCountSelect.value   = String(settings.shieldCount);
     if (els.teamCountSelect)     els.teamCountSelect.value     = String(settings.teamCount);
     if (els.teamCountVal)        els.teamCountVal.textContent  = String(settings.teamCount);
   }
@@ -1412,12 +1461,14 @@
     const dCount = settings.doubleCount   ?? defaultSettings.doubleCount;
     const sCount = settings.swapCount     ?? defaultSettings.swapCount;
     const fCount = settings.faceOffCount  ?? defaultSettings.faceOffCount;
+    const shCount = settings.shieldCount  ?? defaultSettings.shieldCount;
 
     for (let i = 0; i < bCount; i++) deck.push("BANKRUPT");
     for (let i = 0; i < dCount; i++) deck.push("x2");
     for (let i = 0; i < 2; i++) deck.push("PICK_AGAIN");
     for (let i = 0; i < sCount; i++) deck.push("STEAL");
     for (let i = 0; i < fCount; i++) deck.push("FACE_OFF");
+    for (let i = 0; i < shCount; i++) deck.push("SHIELD");
     deck.push("1000"); // guaranteed high-value tile
     while (deck.length < cellCount){
       deck.push(String(moneyValues[Math.floor(Math.random() * moneyValues.length)]));
@@ -1515,6 +1566,9 @@
     if (label === "FACE_OFF"){
       return `<div class="tileEmojiBox"><div class="tileEmojiIcon">⚔️</div><div class="tileEmojiLabel" style="color:#ffd24a;">FACE OFF</div></div>`;
     }
+    if (label === "SHIELD"){
+      return `<div class="tileEmojiBox"><div class="tileEmojiIcon">🛡️</div><div class="tileEmojiLabel" style="color:#7cc4ff;">SHIELD</div></div>`;
+    }
     const src = outcomeImages[label];
     if (src) return imgTag(src, label === "BANKRUPT" ? "BANKRUPT" : label);
     if (label === "BANKRUPT") return `<div style="color: var(--danger);">BANKRUPT</div>`;
@@ -1575,6 +1629,7 @@
       fallback.textContent = imageKey === "STEAL" ? "🐉"
                            : imageKey === "BANKRUPT" ? "💥"
                            : imageKey === "FACE_OFF" ? "⚔️"
+                           : imageKey === "SHIELD" ? "🛡️"
                            : "⭐";
       els.popupAnim.appendChild(fallback);
     }
@@ -1728,6 +1783,14 @@
     const tileEl = tileIdx != null ? els.grid.querySelector(`[data-idx="${tileIdx}"]`) : null;
 
     if (label === "BANKRUPT"){
+      if (shields[activeTeam] > 0){
+        shields[activeTeam]--;
+        updateScores();
+        setLog(`🛡️ ${teamName}'s shield BLOCKED the bankrupt!`);
+        try { await playSfx("double"); } catch (_) {}
+        showPopup("shield", "🛡️ BLOCKED!", `${teamName}'s shield absorbed the BANKRUPT`, "#7cc4ff", "SHIELD", true);
+        return false;
+      }
       bankruptFx();
       scores[activeTeam] = 0;
       updateScores();
@@ -1773,6 +1836,15 @@
 
       const aName = teamName;
       const bName = getTeamName(targetKey);
+      if (shields[targetKey] > 0){
+        // Victim's shield eats the steal — no points move, shield consumed.
+        shields[targetKey]--;
+        updateScores();
+        setLog(`🛡️ ${bName}'s shield BLOCKED ${aName}'s steal!`);
+        try { await playSfx("double"); } catch (_) {}
+        showPopup("shield", "🛡️ BLOCKED!", `${bName}'s shield stopped ${aName}'s steal`, "#7cc4ff", "SHIELD", true);
+        return false;
+      }
       // Take, don't trade: the victim's points are ADDED to the thief's total
       // and the victim drops to 0.
       const stolen = scores[targetKey];
@@ -1783,6 +1855,15 @@
       setLog(`🐉 ${aName} stole ${stolen} points from ${bName}!`);
       try { await playSfx("bankrupt"); } catch (_) {}
       showPopup("steal", "🐉 STEAL!", `${aName} stole ${stolen} points from ${bName}!`, "#b794f4", "STEAL", true);
+      return false;
+    }
+
+    if (label === "SHIELD"){
+      shields[activeTeam]++;
+      updateScores();
+      setLog(`🛡️ ${teamName} gained a shield! Protected from the next BANKRUPT or steal.`);
+      try { await playSfx("coin"); } catch (_) {}
+      showPopup("shield", "🛡️ SHIELD!", `${teamName} is protected from the next BANKRUPT or steal`, "#7cc4ff", "SHIELD", true);
       return false;
     }
 
@@ -1837,6 +1918,7 @@
       label: cell.label,
       team: activeTeam,
       prevScores: { A: scores.A, B: scores.B, C: scores.C, D: scores.D },
+      prevShields: { A: shields.A, B: shields.B, C: shields.C, D: shields.D },
     });
     setUndoUI();
 
@@ -2047,6 +2129,17 @@
   }
   // ==========================
 
+  function renderShieldBadges(){
+    for (const k of TEAM_KEYS){
+      const n = shields[k] || 0;
+      const text = n > 1 ? `🛡️×${n}` : (n === 1 ? "🛡️" : "");
+      const opBadge = els[`team${k}Shield`];
+      if (opBadge) opBadge.textContent = text;
+      const phBadge = els[`phTeam${k}Shield`];
+      if (phBadge) phBadge.textContent = text;
+    }
+  }
+
   function updateScores(){
     for (const k of TEAM_KEYS){
       const el = els[`team${k}Score`];
@@ -2054,6 +2147,7 @@
     }
     els.activeTeamBadge.textContent = `Active: ${getTeamName(activeTeam)}`;
     applyActiveGlow();
+    renderShieldBadges();
     broadcastState();
   }
 
@@ -2065,6 +2159,7 @@
 
   function resetScores(){
     scores = { A: 0, B: 0, C: 0, D: 0 };
+    shields = { A: 0, B: 0, C: 0, D: 0 };
     updateScores();
     clearUndo();
     setLog("Scores reset.");
@@ -2077,6 +2172,7 @@
 
     for (const k of TEAM_KEYS){
       if (last.prevScores && k in last.prevScores) scores[k] = last.prevScores[k];
+      if (last.prevShields && k in last.prevShields) shields[k] = last.prevShields[k];
     }
     activeTeam = last.team;
 
@@ -2191,6 +2287,7 @@
   wireCountSelect(els.doubleCountSelect,   "doubleCount");
   wireCountSelect(els.swapCountSelect,     "swapCount");
   wireCountSelect(els.faceOffCountSelect,  "faceOffCount");
+  wireCountSelect(els.shieldCountSelect,   "shieldCount");
 
   if (els.teamCountSelect){
     els.teamCountSelect.addEventListener("change", () => {
@@ -2278,6 +2375,7 @@
       type: 'STATE',
       board,
       scores,
+      shields,
       activeTeam,
       teamCount,
       teamNames,
@@ -2338,7 +2436,7 @@
       if (e.data.type === 'READY'){ broadcastState(); return; }
       if (e.data.type !== 'STATE') return;
 
-      const { board: b, scores: s, activeTeam: at,
+      const { board: b, scores: s, shields: sh, activeTeam: at,
               teamNames, teamAName: legacyA, teamBName: legacyB,
               teamCount: tc,
               boardRows: br, boardCols: bc,
@@ -2353,6 +2451,7 @@
 
         board       = b;
         scores      = { A: 0, B: 0, C: 0, D: 0, ...(s || {}) };
+        shields     = { A: 0, B: 0, C: 0, D: 0, ...(sh || {}) };
         activeTeam  = at;
         boardRows   = br;
         boardCols   = bc;
@@ -2378,6 +2477,7 @@
         const activeName = (names[at]) || getTeamName(at);
         els.activeTeamBadge.textContent = `Active: ${activeName}`;
         applyActiveGlow();
+        renderShieldBadges();
 
         if (started){
           els.startOverlay.classList.add('hidden');
@@ -2452,7 +2552,7 @@
     if (presenterChannel){
       presenterChannel.onmessage = (e) => {
         if (e.data.type !== 'STATE') return;
-        const { board: b, scores: s, activeTeam: at,
+        const { board: b, scores: s, shields: sh, activeTeam: at,
                 teamNames, teamAName: legacyA, teamBName: legacyB,
                 teamCount: tc,
                 boardRows: br, boardCols: bc, winnerShown: ws, popup } = e.data;
@@ -2465,6 +2565,7 @@
         // Mirror state into local variables
         board        = b;
         scores       = { A: 0, B: 0, C: 0, D: 0, ...(s || {}) };
+        shields      = { A: 0, B: 0, C: 0, D: 0, ...(sh || {}) };
         activeTeam   = at;
         boardRows    = br;
         boardCols    = bc;
@@ -2487,6 +2588,7 @@
           if (phBox) phBox.classList.toggle('activeGlow', k === at);
         }
 
+        renderShieldBadges();
         renderGrid();
         animateNewReveals(prevRevealed, b); // flip + ripple freshly revealed tiles for the audience
 
@@ -2591,11 +2693,13 @@
           ? board.map(c => !!(c && c.revealed)) : null;
         if (Array.isArray(data.board)) board       = data.board;
         if (data.scores)               scores      = { A:0, B:0, C:0, D:0, ...data.scores };
+        if (data.shields)              shields     = { A:0, B:0, C:0, D:0, ...data.shields };
         if (data.activeTeam)           activeTeam  = data.activeTeam;
         if (data.boardRows)            boardRows   = data.boardRows;
         if (data.boardCols)            boardCols   = data.boardCols;
         if (typeof data.winnerShown === 'boolean') winnerShown = data.winnerShown;
 
+        renderShieldBadges();
         applyingRemoteState = true;
         try {
           renderGrid();
