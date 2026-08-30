@@ -1020,8 +1020,8 @@
 
   const moneyValues = [100, 200, 500, 1000];
 
-  const relSfx    = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00, faceoff: 1.00, buzzer: 1.00, pickagain: 1.00 };
-  const sfxFiles  = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3", faceoff: "face off.mp3", buzzer: "buzzer.mp3", pickagain: "pick again.mp3" };
+  const relSfx    = { coin: 0.90, bankrupt: 1.00, double: 0.95, steal: 1.00, faceoff: 1.00, buzzer: 1.00, pickagain: 1.00, shield: 1.00 };
+  const sfxFiles  = { coin: "coin.mp3", bankrupt: "bankrupt.mp3", double: "double.mp3", steal: "steal.mp3", faceoff: "face off.mp3", buzzer: "buzzer.mp3", pickagain: "pick again.mp3", shield: "shield.mp3" };
 
   const popupAutoCloseMs = 2500;
   const tileFlipMs = 420;
@@ -1096,8 +1096,8 @@
     winSrc:null,
     buffers:{},
     keepAliveOsc:null,
-    htmlPool:{ coin:[], bankrupt:[], double:[], steal:[], faceoff:[], buzzer:[], pickagain:[] },
-    htmlIdx:{ coin:0, bankrupt:0, double:0, steal:0, faceoff:0, buzzer:0, pickagain:0 }
+    htmlPool:{ coin:[], bankrupt:[], double:[], steal:[], faceoff:[], buzzer:[], pickagain:[], shield:[] },
+    htmlIdx:{ coin:0, bankrupt:0, double:0, steal:0, faceoff:0, buzzer:0, pickagain:0, shield:0 }
   };
 
   const els = {
@@ -1792,7 +1792,7 @@
         shields[activeTeam]--;
         updateScores();
         setLog(`🛡️ ${teamName}'s shield BLOCKED the bankrupt!`);
-        try { await playSfx("double"); } catch (_) {}
+        try { await playSfx("shield"); } catch (_) {}
         showPopup("shield", "🛡️ BLOCKED!", `${teamName}'s shield absorbed the BANKRUPT`, "#7cc4ff", "SHIELD", true);
         return false;
       }
@@ -1846,7 +1846,7 @@
         shields[targetKey]--;
         updateScores();
         setLog(`🛡️ ${bName}'s shield BLOCKED ${aName}'s steal!`);
-        try { await playSfx("double"); } catch (_) {}
+        try { await playSfx("shield"); } catch (_) {}
         showPopup("shield", "🛡️ BLOCKED!", `${bName}'s shield stopped ${aName}'s steal`, "#7cc4ff", "SHIELD", true);
         return false;
       }
@@ -1867,7 +1867,7 @@
       shields[activeTeam]++;
       updateScores();
       setLog(`🛡️ ${teamName} gained a shield! Protected from the next BANKRUPT or steal.`);
-      try { await playSfx("coin"); } catch (_) {}
+      try { await playSfx("shield"); } catch (_) {}
       showPopup("shield", "🛡️ SHIELD!", `${teamName} is protected from the next BANKRUPT or steal`, "#7cc4ff", "SHIELD", true);
       return false;
     }
