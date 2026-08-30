@@ -1958,8 +1958,12 @@
     if (!done) return;
 
     winnerShown = true;
-    hidePopup();
+    // Don't hide the final tile's outcome popup — let it play its full
+    // auto-close window (2.5s) plus a short beat of empty board before the
+    // winner takes the stage. Hiding it instantly meant the last pick of the
+    // game was never actually seen.
     setTimeout(() => {
+      hidePopup(); // clear any straggler (e.g. host tapped mid-close) before the winner
       const keys = activeTeamKeys();
       const max = Math.max(...keys.map(k => scores[k]));
       const winners = keys.filter(k => scores[k] === max);
@@ -1979,7 +1983,7 @@
       if (audio.ready) startWinnerMusic();
       showPopup("winner", title, finalLine, "var(--accent)", "WINNER", false);
       setLog(`Board complete. ${title}`);
-    }, 650);
+    }, popupAutoCloseMs + 700);
   }
 
   // ===== JUICE HELPERS =====
