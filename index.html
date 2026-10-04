@@ -1826,17 +1826,23 @@
     }
 
     if (label === "STEAL"){
-      // Active team may steal from any other team, or decline. Always show the picker
-      // (even at 2 teams — the whole point of steal is the "should I?" choice).
       try { await playSfx("steal"); } catch (_) {}
-      showPopup("steal", "🐉 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
-      const targetKey = await pickStealTarget();
 
-      if (targetKey === null){
-        // Declined — no score change.
-        setLog(`${teamName} chose NOT to steal.`);
-        showPopup("steal", "🐉 STEAL!", `${teamName} passed on the steal`, "#b794f4", "STEAL", true);
-        return false;
+      let targetKey;
+      if (teamCount === 2){
+        // Only one possible victim — steal automatically, no picker, no skip.
+        targetKey = nextTeam(activeTeam);
+      } else {
+        // 3+ teams: active team picks a victim or declines.
+        showPopup("steal", "🐉 STEAL!", `${teamName} is deciding…`, "#b794f4", "STEAL", false);
+        targetKey = await pickStealTarget();
+
+        if (targetKey === null){
+          // Declined — no score change.
+          setLog(`${teamName} chose NOT to steal.`);
+          showPopup("steal", "🐉 STEAL!", `${teamName} passed on the steal`, "#b794f4", "STEAL", true);
+          return false;
+        }
       }
 
       const aName = teamName;
